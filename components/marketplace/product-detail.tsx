@@ -2,20 +2,26 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, ShieldCheck, Check, Star, ShoppingCart, Download, Share2, Bookmark } from "lucide-react"
+import { ArrowLeft, ShieldCheck, Check, Star, ShoppingCart, Download, Share2, Bookmark, Building2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import BioequivalenceInfo from "./bioequivalence-info"
 import type { Product } from "./product-data"
+import { getSupplierByName } from "./product-data"
 
 interface ProductDetailProps {
   product: Product
 }
 
 export default function ProductDetail({ product }: ProductDetailProps) {
-  const [quantity, setQuantity] = useState(product.minOrder)
+  const [quantity, setQuantity] = useState(product.minOrder || product.suppliers[0]?.minOrder || 1)
+  const [selectedSupplier, setSelectedSupplier] = useState(product.suppliers[0]?.supplierId)
+
+  // Get the lowest price from all suppliers
+  const lowestPrice = Math.min(...product.suppliers.map(s => s.price))
+  const supplierCount = product.suppliers.length
 
   return (
     <div className="container mx-auto p-6">
@@ -84,12 +90,12 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                     <h3 className="text-sm font-medium text-gray-500">Supplier</h3>
                     <div className="flex items-center">
                       <Link
-                        href={`/suppliers/${encodeURIComponent(product.supplier)}`}
+                        href={`/suppliers/${encodeURIComponent(product.suppliers[0]?.supplierId || '')}`}
                         className="text-blue-600 hover:underline"
                       >
-                        {product.supplier}
+                        {product.suppliers[0]?.supplierId}
                       </Link>
-                      {product.supplierVerified && <Check className="h-4 w-4 ml-1 text-green-600" />}
+                      {product.verified && <Check className="h-4 w-4 ml-1 text-green-600" />}
                     </div>
                   </div>
                   <div>
@@ -115,11 +121,12 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <span className="text-3xl font-bold">₦{product.price.toLocaleString()}</span>
+                  <span className="text-3xl font-bold">₦{lowestPrice.toLocaleString()}</span>
                   <span className="text-gray-500 ml-2">/ {product.unit}</span>
+                  <p className="text-sm text-gray-500 mt-1">Available from {supplierCount} suppliers</p>
                 </div>
                 <div className="text-sm text-gray-500">
-                  Min Order: {product.minOrder} {product.unit.includes("pack") ? "packs" : "units"}
+                  Min Order: {product.suppliers[0]?.minOrder} {product.unit.includes("pack") ? "packs" : "units"}
                 </div>
               </div>
 
@@ -128,7 +135,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setQuantity(Math.max(product.minOrder, quantity - 1))}
+                    onClick={() => setQuantity(Math.max(product.suppliers[0]?.minOrder || 1, quantity - 1))}
                   >
                     -
                   </Button>
@@ -151,10 +158,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
           </Card>
 
           <Tabs defaultValue="overview">
-            <TabsList className="grid grid-cols-4 mb-4">
+            <TabsList className="grid grid-cols-5 mb-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="bioequivalence">Bioequivalence</TabsTrigger>
               <TabsTrigger value="certification">Certification</TabsTrigger>
+              <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
               <TabsTrigger value="alternatives">Alternatives</TabsTrigger>
             </TabsList>
             <TabsContent value="overview">
@@ -294,6 +302,68 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                 </CardContent>
               </Card>
             </TabsContent>
+            <TabsContent value="suppliers">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Available Suppliers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {product.suppliers.map((supplier) => (
+                      <div key={supplier.supplierId} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center">
+                            <Building2 className="h-4 w-4 mr-2 text-gray-500" />
+                            <span className="font-medium">{supplier.supplierId}</span>
+                            {getSupplierByName(supplier.supplierId)?.verified && (
+                              <Check className="h-4 w-4 ml-1 text-green-600" />
+                            )}
+                          </div>
+                          <Badge variant="outline">
+                            {supplier.location}, Nigeria
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Price</p>
+                            <p className="text-lg font-bold">₦{supplier.price.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Stock</p>
+                            <p className="text-lg font-bold">{supplier.stock}+ {product.unit}</p>
+                          </div>
+                        </div>
+
+                        {supplier.bulkDiscounts && supplier.bulkDiscounts.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm text-gray-500 mb-2">Bulk Discounts</p>
+                            <div className="space-y-1">
+                              {supplier.bulkDiscounts.map((discount, index) => (
+                                <div key={index} className="flex justify-between text-sm">
+                                  <span>{discount.quantity}+ {product.unit}</span>
+                                  <span className="text-green-600">-{discount.discount}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between items-center">
+                          <div className="text-sm text-gray-500">
+                            Min Order: {supplier.minOrder} {product.unit.includes("pack") ? "packs" : "units"}
+                          </div>
+                          <Button>
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
             <TabsContent value="alternatives">
               <Card>
                 <CardHeader>
@@ -303,8 +373,27 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                   <p className="text-gray-500 mb-4">
                     Similar products containing the same active ingredient ({product.genericName})
                   </p>
-                  <div className="h-40 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-400">Alternative products will be displayed here</p>
+                  <div className="space-y-4">
+                    {/* Example alternative product - replace with actual data */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-medium">Alternative Brand Name</h3>
+                          <p className="text-sm text-gray-500">Manufacturer: Example Pharma</p>
+                        </div>
+                        <BioequivalenceInfo value={95} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Price Range</p>
+                          <p className="text-lg font-bold">₦2,500 - ₦3,000</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Available From</p>
+                          <p className="text-lg font-bold">3 suppliers</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

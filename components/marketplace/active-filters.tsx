@@ -1,0 +1,50 @@
+import { X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+
+interface ActiveFilter {
+  id: string
+  label: string
+}
+
+interface ActiveFiltersProps {
+  filters: ActiveFilter[]
+  onRemove: (id: string) => void
+  onClear: () => void
+}
+
+export function ActiveFilters({ filters, onRemove, onClear }: ActiveFiltersProps) {
+  if (filters.length === 0) return null
+
+  return (
+    <div className="flex items-center gap-2 py-2">
+      <ScrollArea className="w-full">
+        <div className="flex gap-2">
+          {filters.map((filter) => (
+            <Button
+              key={filter.id}
+              variant="secondary"
+              size="sm"
+              className="rounded-full h-7 px-3 text-sm shrink-0"
+              onClick={() => onRemove(filter.id)}
+            >
+              {filter.label}
+              <X className="h-3 w-3 ml-1" />
+            </Button>
+          ))}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+      {filters.length > 1 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 h-7 px-2 text-sm font-medium"
+          onClick={onClear}
+        >
+          Clear all
+        </Button>
+      )}
+    </div>
+  )
+} 
