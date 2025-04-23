@@ -1,5 +1,5 @@
 import { EscrowPaymentSystem } from "@/components/buyer/escrow-payment-system"
-import { BuyerDashboardLayout } from "@/components/layouts/buyer-dashboard-layout"
+import BuyerDashboardLayout from "@/components/layouts/buyer-dashboard-layout"
 
 export default function CheckoutPage() {
   return (

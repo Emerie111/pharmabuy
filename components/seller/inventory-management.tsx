@@ -98,8 +98,8 @@ const inventoryData = [
     sku: 'CIP-500-10',
     price: 5500,
     stock: 90,
-    nafdacStatus: 'Verified',\
-    expiryDate: '2024-11-
+    nafdacStatus: 'Verified',
+    expiryDate: '2024-11-30'
   },
   {
     id: "P001",
@@ -154,7 +154,7 @@ const inventoryData = [
 
 export default function InventoryManagement() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<(string | number)[]>([])
   const [fileProcessing, setFileProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState("products")
 

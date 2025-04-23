@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ShieldCheck, Truck, Calendar, Clock, TrendingUp, Search, Package } from "lucide-react"
+import Link from "next/link"
 
 export default function BuyerDashboardPage() {
   return (
@@ -169,10 +170,12 @@ export default function BuyerDashboardPage() {
             <Truck className="mr-2 h-4 w-4" />
             Track Shipment
           </Button>
-          <Button>
-            <Search className="mr-2 h-4 w-4" />
-            Browse Products
-          </Button>
+          <Link href="/marketplace">
+            <Button>
+              <Search className="mr-2 h-4 w-4" />
+              Browse Products
+            </Button>
+          </Link>
         </div>
       </div>
     </BuyerDashboardLayout>

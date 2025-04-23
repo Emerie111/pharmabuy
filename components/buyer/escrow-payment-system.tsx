@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
+import ClientOnly from '../client-only'
 
 interface EscrowPaymentSystemProps {
   productName?: string
@@ -39,9 +40,28 @@ export function EscrowPaymentSystem({
   quantity = 1,
   sellerName = "Verified Supplier",
 }: EscrowPaymentSystemProps) {
+  return (
+    <ClientOnly>
+      <EscrowPaymentSystemContent
+        productName={productName}
+        productPrice={productPrice}
+        quantity={quantity}
+        sellerName={sellerName}
+      />
+    </ClientOnly>
+  )
+}
+
+function EscrowPaymentSystemContent({
+  productName = "Pharmaceutical Products",
+  productPrice = 10000,
+  quantity = 1,
+  sellerName = "Verified Supplier",
+}: EscrowPaymentSystemProps) {
   const [step, setStep] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState("card")
   const [deliveryUrgency, setDeliveryUrgency] = useState("standard")
+  const [orderId] = useState(() => `ORD-${Date.now().toString().slice(-5)}`)
   const [verificationChecklist, setVerificationChecklist] = useState({
     allItems: false,
     matchDescription: false,
@@ -51,7 +71,7 @@ export function EscrowPaymentSystem({
   })
   const [rating, setRating] = useState(0)
 
-  const subtotal = productPrice * quantity
+  const subtotal = (productPrice ?? 10000) * (quantity ?? 1)
   const urgencyFees = {
     standard: 0,
     express: 1500,
@@ -235,7 +255,7 @@ export function EscrowPaymentSystem({
                         <span className="font-medium">Account Number:</span> 1234567890
                       </p>
                       <p>
-                        <span className="font-medium">Reference:</span> ORD-{Math.floor(Math.random() * 10000)}
+                        <span className="font-medium">Reference:</span> {orderId}
                       </p>
                     </div>
                     <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -435,7 +455,7 @@ export function EscrowPaymentSystem({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Order ID</p>
-                        <p className="font-medium">ORD-{Math.floor(10000 + Math.random() * 90000)}</p>
+                        <p className="font-medium">{orderId}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Order Date</p>
@@ -585,7 +605,7 @@ export function EscrowPaymentSystem({
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <p className="text-sm text-gray-500">Order ID</p>
-                        <p className="font-medium">ORD-{Math.floor(10000 + Math.random() * 90000)}</p>
+                        <p className="font-medium">{orderId}</p>
                       </div>
                       <div className="flex justify-between">
                         <p className="text-sm text-gray-500">Seller</p>
