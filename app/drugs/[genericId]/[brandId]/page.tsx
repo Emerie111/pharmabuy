@@ -242,44 +242,46 @@ export default async function BrandedProductPage({ params }: BrandedProductPageP
                   </TabsContent>
 
                   <TabsContent value="bioequivalence" className="mt-6">
-                    <BioequivalenceDetails 
-                      data={{
-                        referenceProduct: {
-                          name: "Amoxil® 500mg",
-                          manufacturer: "GSK"
-                        },
-                        testProduct: {
-                          name: brand.brandName,
-                          manufacturer: brand.manufacturer
-                        },
-                        testingInfo: {
-                          authority: "NAFDAC Bioequivalence Research Center",
-                          date: "March 2024",
-                          certificateNumber: "BE-2024-0472"
-                        },
-                        metrics: {
-                          auc: {
-                            test: 28.4,
-                            reference: 27.8,
-                            ratio: 102.2,
-                            confidenceInterval: [96.5, 107.8],
-                            result: "PASS"
+                    <div className="space-y-6">
+                      <BioequivalenceDetails 
+                        data={{
+                          referenceProduct: {
+                            name: "Amoxil® 500mg",
+                            manufacturer: "GSK"
                           },
-                          cmax: {
-                            test: 8.7,
-                            reference: 8.5,
-                            ratio: 102.4,
-                            confidenceInterval: [92.7, 112.5],
-                            result: "PASS"
+                          testProduct: {
+                            name: brand.brandName,
+                            manufacturer: brand.manufacturer
                           },
-                          tmax: {
-                            test: 1.8,
-                            reference: 1.7
-                          }
-                        },
-                        status: "BIOEQUIVALENT"
-                      }}
-                    />
+                          testingInfo: {
+                            authority: "NAFDAC Bioequivalence Research Center",
+                            date: "March 2024",
+                            certificateNumber: "BE-2024-0472"
+                          },
+                          metrics: {
+                            auc: {
+                              test: 28.4,
+                              reference: 27.8,
+                              ratio: 102.2,
+                              confidenceInterval: [96.5, 107.8],
+                              result: "PASS"
+                            },
+                            cmax: {
+                              test: 8.7,
+                              reference: 8.5,
+                              ratio: 102.4,
+                              confidenceInterval: [92.7, 112.5],
+                              result: "PASS"
+                            },
+                            tmax: {
+                              test: 1.8,
+                              reference: 1.7
+                            }
+                          },
+                          status: "BIOEQUIVALENT"
+                        }}
+                      />
+                    </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>
