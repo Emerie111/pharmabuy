@@ -89,9 +89,6 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
               <p className="text-sm text-gray-500">
                 {drug.brandProducts.length} Brand{drug.brandProducts.length !== 1 ? 's' : ''} Available
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {drug.description}
-              </p>
             </div>
           </div>
 

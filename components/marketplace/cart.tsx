@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useState } from "react"
 import { Trash2, Plus, Minus, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -7,6 +8,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useCartStore } from "./cartStore"
+import { useRouter } from "next/navigation"
 
 interface CartItem {
   id: string
@@ -17,50 +20,57 @@ interface CartItem {
   supplier: string
   verified: boolean
   image: string
+  brandId: string
+  genericId: string
 }
 
 export default function Cart() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: "p1",
-      name: "Amoxicillin 500mg",
-      price: 2500,
-      quantity: 5,
-      unit: "pack of 10",
-      supplier: "PharmaCare Ltd",
-      verified: true,
-      image: "/placeholder.svg?height=80&width=80&text=Amoxicillin",
-    },
-    {
-      id: "p2",
-      name: "Paracetamol 500mg",
-      price: 800,
-      quantity: 10,
-      unit: "pack of 20",
-      supplier: "MediPlus Nigeria",
-      verified: true,
-      image: "/placeholder.svg?height=80&width=80&text=Paracetamol",
-    },
-    {
-      id: "p4",
-      name: "Lisinopril 10mg",
-      price: 1800,
-      quantity: 2,
-      unit: "pack of 15",
-      supplier: "CardioHealth Inc",
-      verified: true,
-      image: "/placeholder.svg?height=80&width=80&text=Lisinopril",
-    },
-  ])
+  const { cartItems, setCartItems, updateQuantity, removeItem, clearCart } = useCartStore()
+  const router = useRouter()
 
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity < 1) return
-    setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)))
-  }
-
-  const removeItem = (id: string) => {
-    setCartItems(cartItems.filter((item) => item.id !== id))
-  }
+  // For demo: if cart is empty, initialize with sample data
+  React.useEffect(() => {
+    if (cartItems.length === 0) {
+      setCartItems([
+        {
+          id: "p1",
+          name: "Amoxicillin 500mg",
+          price: 2500,
+          quantity: 5,
+          unit: "pack of 10",
+          supplier: "PharmaCare Ltd",
+          verified: true,
+          image: "/placeholder.svg?height=80&width=80&text=Amoxicillin",
+          brandId: "amoxicillin-brandA",
+          genericId: "amoxicillin",
+        },
+        {
+          id: "p2",
+          name: "Paracetamol 500mg",
+          price: 800,
+          quantity: 10,
+          unit: "pack of 20",
+          supplier: "MediPlus Nigeria",
+          verified: true,
+          image: "/placeholder.svg?height=80&width=80&text=Paracetamol",
+          brandId: "paracetamol-brandB",
+          genericId: "paracetamol",
+        },
+        {
+          id: "p4",
+          name: "Lisinopril 10mg",
+          price: 1800,
+          quantity: 2,
+          unit: "pack of 15",
+          supplier: "CardioHealth Inc",
+          verified: true,
+          image: "/placeholder.svg?height=80&width=80&text=Lisinopril",
+          brandId: "lisinopril-brandC",
+          genericId: "lisinopril",
+        },
+      ])
+    }
+  }, [cartItems, setCartItems])
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const deliveryFee = 2000
@@ -78,9 +88,7 @@ export default function Cart() {
             {cartItems.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500">Your cart is empty</p>
-                <Button variant="link" className="mt-2">
-                  Continue Shopping
-                </Button>
+                <Button variant="link" className="mt-2" onClick={() => router.push("/product-marketplace")}>Continue Shopping</Button>
               </div>
             ) : (
               <>
@@ -149,8 +157,8 @@ export default function Cart() {
             )}
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline">Continue Shopping</Button>
-            <Button variant="ghost" className="text-red-500" onClick={() => setCartItems([])}>
+            <Button variant="outline" onClick={() => router.push("/product-marketplace")}>Continue Shopping</Button>
+            <Button variant="ghost" className="text-red-500" onClick={clearCart}>
               Clear Cart
             </Button>
           </CardFooter>
@@ -190,7 +198,7 @@ export default function Cart() {
               </AlertDescription>
             </Alert>
 
-            <Button className="w-full">Proceed to Checkout</Button>
+            <Button className="w-full" onClick={() => router.push("/checkout")}>Proceed to Checkout</Button>
           </CardContent>
         </Card>
 

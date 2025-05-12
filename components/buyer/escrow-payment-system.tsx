@@ -28,35 +28,39 @@ import { Separator } from "@/components/ui/separator"
 import ClientOnly from '../client-only'
 
 interface EscrowPaymentSystemProps {
-  productName?: string
-  productPrice?: number
-  quantity?: number
-  sellerName?: string
+  cartItems: any[]
+  subtotal: number
+  deliveryFee: number
+  escrowFee: number
+  total: number
 }
 
 export function EscrowPaymentSystem({
-  productName = "Pharmaceutical Products",
-  productPrice = 10000,
-  quantity = 1,
-  sellerName = "Verified Supplier",
+  cartItems,
+  subtotal,
+  deliveryFee,
+  escrowFee,
+  total,
 }: EscrowPaymentSystemProps) {
   return (
     <ClientOnly>
       <EscrowPaymentSystemContent
-        productName={productName}
-        productPrice={productPrice}
-        quantity={quantity}
-        sellerName={sellerName}
+        cartItems={cartItems}
+        subtotal={subtotal}
+        deliveryFee={deliveryFee}
+        escrowFee={escrowFee}
+        total={total}
       />
     </ClientOnly>
   )
 }
 
 function EscrowPaymentSystemContent({
-  productName = "Pharmaceutical Products",
-  productPrice = 10000,
-  quantity = 1,
-  sellerName = "Verified Supplier",
+  cartItems,
+  subtotal,
+  deliveryFee,
+  escrowFee,
+  total,
 }: EscrowPaymentSystemProps) {
   const [step, setStep] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState("card")
@@ -71,14 +75,11 @@ function EscrowPaymentSystemContent({
   })
   const [rating, setRating] = useState(0)
 
-  const subtotal = (productPrice ?? 10000) * (quantity ?? 1)
   const urgencyFees = {
     standard: 0,
     express: 1500,
     urgent: 3000,
   }
-  const escrowFee = Math.round(subtotal * 0.01) // 1% escrow fee
-  const finalAmount = subtotal + urgencyFees[deliveryUrgency as keyof typeof urgencyFees] + escrowFee
 
   const handleNext = () => {
     if (step < 5) {
@@ -103,14 +104,14 @@ function EscrowPaymentSystemContent({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="mb-8">
+      <div className="mb-16">
         <div className="relative">
           <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-gray-200"></div>
           <ol className="relative z-10 flex justify-between">
             {[1, 2, 3, 4, 5].map((i) => (
-              <li key={i} className="flex items-center justify-center">
+              <li key={i} className="flex flex-col items-center flex-1">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                  className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${
                     step === i
                       ? "border-emerald-600 bg-emerald-600 text-white"
                       : step > i
@@ -120,7 +121,7 @@ function EscrowPaymentSystemContent({
                 >
                   {step > i ? <CheckCircle2 className="h-5 w-5" /> : i}
                 </div>
-                <span className="absolute mt-14 w-max -translate-x-1/2 text-center text-sm font-medium">
+                <span className="mt-4 block w-full text-center text-xs sm:text-sm md:text-base font-medium">
                   {i === 1 && "Delivery Options"}
                   {i === 2 && "Payment Details"}
                   {i === 3 && "Review Order"}
@@ -133,7 +134,7 @@ function EscrowPaymentSystemContent({
         </div>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
+      <Card className="border-gray-200 shadow-sm mt-8 sm:mt-12">
         {step === 1 && (
           <>
             <CardHeader>
@@ -141,9 +142,9 @@ function EscrowPaymentSystemContent({
               <CardDescription>Choose your preferred delivery timeline</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <RadioGroup defaultValue={deliveryUrgency} onValueChange={setDeliveryUrgency} className="space-y-3">
-                  <div className="flex items-start space-x-3 rounded-lg border p-4">
+              <div className="space-y-6">
+                <RadioGroup defaultValue={deliveryUrgency} onValueChange={setDeliveryUrgency} className="space-y-4">
+                  <div className="flex items-start space-x-3 rounded-lg border p-4 sm:p-5">
                     <RadioGroupItem value="standard" id="standard" className="mt-1" />
                     <div className="flex-1">
                       <Label htmlFor="standard" className="text-base font-medium">
@@ -155,7 +156,7 @@ function EscrowPaymentSystemContent({
                     <Truck className="h-6 w-6 text-gray-400" />
                   </div>
 
-                  <div className="flex items-start space-x-3 rounded-lg border p-4">
+                  <div className="flex items-start space-x-3 rounded-lg border p-4 sm:p-5">
                     <RadioGroupItem value="express" id="express" className="mt-1" />
                     <div className="flex-1">
                       <Label htmlFor="express" className="text-base font-medium">
@@ -167,7 +168,7 @@ function EscrowPaymentSystemContent({
                     <Truck className="h-6 w-6 text-amber-500" />
                   </div>
 
-                  <div className="flex items-start space-x-3 rounded-lg border p-4">
+                  <div className="flex items-start space-x-3 rounded-lg border p-4 sm:p-5">
                     <RadioGroupItem value="urgent" id="urgent" className="mt-1" />
                     <div className="flex-1">
                       <Label htmlFor="urgent" className="text-base font-medium">
@@ -216,8 +217,8 @@ function EscrowPaymentSystemContent({
                   <TabsTrigger value="bank">Bank Transfer</TabsTrigger>
                   <TabsTrigger value="wallet">Wallet</TabsTrigger>
                 </TabsList>
-                <TabsContent value="card" className="space-y-4 pt-4">
-                  <div className="grid gap-4">
+                <TabsContent value="card" className="space-y-5 pt-5">
+                  <div className="grid gap-5">
                     <div className="grid gap-2">
                       <Label htmlFor="card-number">Card Number</Label>
                       <Input id="card-number" placeholder="1234 5678 9012 3456" />
@@ -319,107 +320,105 @@ function EscrowPaymentSystemContent({
               <CardTitle>Review Your Order</CardTitle>
               <CardDescription>Please confirm your order details</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="mb-2 font-medium">Order Summary</h3>
-                  <div className="rounded-lg border">
-                    <div className="border-b p-4">
-                      <div className="flex justify-between">
-                        <div>
-                          <p className="font-medium">{productName}</p>
-                          <p className="text-sm text-gray-500">Quantity: {quantity}</p>
-                        </div>
-                        <p className="font-medium">₦{subtotal.toLocaleString()}</p>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="mb-2 font-medium">Order Summary</h3>
+                <div className="rounded-lg border">
+                  <div className="border-b p-4">
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-medium">{cartItems[0].name}</p>
+                        <p className="text-sm text-gray-500">Quantity: {cartItems.length}</p>
                       </div>
+                      <p className="font-medium">₦{subtotal.toLocaleString()}</p>
                     </div>
-                    <div className="p-4">
-                      <div className="flex justify-between text-sm">
-                        <p>Subtotal</p>
-                        <p>₦{subtotal.toLocaleString()}</p>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <p>Delivery Fee ({deliveryUrgency})</p>
-                        <p>₦{urgencyFees[deliveryUrgency as keyof typeof urgencyFees].toLocaleString()}</p>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <p>Escrow Fee (1%)</p>
-                        <p>₦{escrowFee.toLocaleString()}</p>
-                      </div>
-                      <div className="mt-2 flex justify-between font-medium">
-                        <p>Total</p>
-                        <p>₦{finalAmount.toLocaleString()}</p>
-                      </div>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex justify-between text-sm">
+                      <p>Subtotal</p>
+                      <p>₦{subtotal.toLocaleString()}</p>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <p>Delivery Fee ({deliveryUrgency})</p>
+                      <p>₦{deliveryFee.toLocaleString()}</p>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <p>Escrow Fee (1%)</p>
+                      <p>₦{escrowFee.toLocaleString()}</p>
+                    </div>
+                    <div className="mt-2 flex justify-between font-medium">
+                      <p>Total</p>
+                      <p>₦{total.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="mb-2 font-medium">Delivery Information</h3>
-                  <div className="rounded-lg border p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Delivery Method</p>
-                        <p className="font-medium capitalize">{deliveryUrgency} Delivery</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Estimated Delivery</p>
-                        <p className="font-medium">
-                          {deliveryUrgency === "standard" && "May 10 - May 12, 2023"}
-                          {deliveryUrgency === "express" && "May 7 - May 8, 2023"}
-                          {deliveryUrgency === "urgent" && "May 6, 2023"}
-                        </p>
-                      </div>
+              <div>
+                <h3 className="mb-2 font-medium">Delivery Information</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Delivery Method</p>
+                      <p className="font-medium capitalize">{deliveryUrgency} Delivery</p>
                     </div>
-                    <div className="mt-4">
-                      <p className="text-sm text-gray-500">Delivery Address</p>
-                      <p className="font-medium">Pharma Solutions Ltd</p>
-                      <p className="text-sm">123 Awolowo Road, Ikoyi, Lagos, Nigeria</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="mb-2 font-medium">Seller Information</h3>
-                  <div className="rounded-lg border p-4">
-                    <div className="flex items-center">
-                      <ShieldCheck className="mr-2 h-5 w-5 text-emerald-600" />
-                      <div>
-                        <p className="font-medium">{sellerName}</p>
-                        <p className="text-xs text-gray-500">NAFDAC Verified Seller</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="mb-2 font-medium">Payment Method</h3>
-                  <div className="rounded-lg border p-4">
-                    <div className="flex items-center">
-                      {paymentMethod === "card" && <CreditCard className="mr-2 h-5 w-5 text-gray-500" />}
-                      {paymentMethod === "bank" && <Building className="mr-2 h-5 w-5 text-gray-500" />}
-                      {paymentMethod === "wallet" && <DollarSign className="mr-2 h-5 w-5 text-gray-500" />}
-                      <p className="font-medium capitalize">
-                        {paymentMethod === "card"
-                          ? "Credit Card"
-                          : paymentMethod === "bank"
-                            ? "Bank Transfer"
-                            : "Wallet"}
+                    <div>
+                      <p className="text-sm text-gray-500">Estimated Delivery</p>
+                      <p className="font-medium">
+                        {deliveryUrgency === "standard" && "May 10 - May 12, 2023"}
+                        {deliveryUrgency === "express" && "May 7 - May 8, 2023"}
+                        {deliveryUrgency === "urgent" && "May 6, 2023"}
                       </p>
                     </div>
                   </div>
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500">Delivery Address</p>
+                    <p className="font-medium">Pharma Solutions Ltd</p>
+                    <p className="text-sm">123 Awolowo Road, Ikoyi, Lagos, Nigeria</p>
+                  </div>
                 </div>
+              </div>
 
-                <div className="rounded-lg bg-emerald-50 p-4">
-                  <div className="flex">
+              <div>
+                <h3 className="mb-2 font-medium">Seller Information</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center">
                     <ShieldCheck className="mr-2 h-5 w-5 text-emerald-600" />
                     <div>
-                      <p className="font-medium">Escrow Payment Protection</p>
-                      <p className="text-sm text-emerald-700">
-                        Your payment will be held in escrow until you verify and approve the delivery. You'll have 48
-                        hours after delivery to inspect the products before the payment is released to the seller.
-                      </p>
+                      <p className="font-medium">{cartItems[0].sellerName}</p>
+                      <p className="text-xs text-gray-500">NAFDAC Verified Seller</p>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-medium">Payment Method</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center">
+                    {paymentMethod === "card" && <CreditCard className="mr-2 h-5 w-5 text-gray-500" />}
+                    {paymentMethod === "bank" && <Building className="mr-2 h-5 w-5 text-gray-500" />}
+                    {paymentMethod === "wallet" && <DollarSign className="mr-2 h-5 w-5 text-gray-500" />}
+                    <p className="font-medium capitalize">
+                      {paymentMethod === "card"
+                        ? "Credit Card"
+                        : paymentMethod === "bank"
+                          ? "Bank Transfer"
+                          : "Wallet"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-emerald-50 p-4">
+                <div className="flex">
+                  <ShieldCheck className="mr-2 h-5 w-5 text-emerald-600" />
+                  <div>
+                    <p className="font-medium">Escrow Payment Protection</p>
+                    <p className="text-sm text-emerald-700">
+                      Your payment will be held in escrow until you verify and approve the delivery. You'll have 48
+                      hours after delivery to inspect the products before the payment is released to the seller.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -439,106 +438,104 @@ function EscrowPaymentSystemContent({
               <CardTitle>Product Verification</CardTitle>
               <CardDescription>Verify your delivery before releasing payment</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-700">
-                    Your payment is being held in escrow. Please verify that all products have been delivered correctly
-                    before approving the release of funds.
-                  </AlertDescription>
-                </Alert>
+            <CardContent className="space-y-6">
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-700">
+                  Your payment is being held in escrow. Please verify that all products have been delivered correctly
+                  before approving the release of funds.
+                </AlertDescription>
+              </Alert>
 
-                <div>
-                  <h3 className="mb-2 font-medium">Order Information</h3>
-                  <div className="rounded-lg border p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Order ID</p>
-                        <p className="font-medium">{orderId}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Order Date</p>
-                        <p className="font-medium">May 5, 2023</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Delivery Date</p>
-                        <p className="font-medium">May 7, 2023</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Escrow Status</p>
-                        <Badge className="bg-blue-500">Awaiting Approval</Badge>
-                      </div>
+              <div>
+                <h3 className="mb-2 font-medium">Order Information</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Order ID</p>
+                      <p className="font-medium">{orderId}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">May 5, 2023</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Delivery Date</p>
+                      <p className="font-medium">May 7, 2023</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Escrow Status</p>
+                      <Badge className="bg-blue-500">Awaiting Approval</Badge>
                     </div>
                   </div>
                 </div>
-
-                <div>
-                  <h3 className="mb-2 font-medium">Verification Checklist</h3>
-                  <div className="space-y-3 rounded-lg border p-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="all-items"
-                        checked={verificationChecklist.allItems}
-                        onCheckedChange={() => handleChecklistChange("allItems")}
-                      />
-                      <Label htmlFor="all-items">All items were delivered as ordered</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="match-description"
-                        checked={verificationChecklist.matchDescription}
-                        onCheckedChange={() => handleChecklistChange("matchDescription")}
-                      />
-                      <Label htmlFor="match-description">Products match the descriptions</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="good-condition"
-                        checked={verificationChecklist.goodCondition}
-                        onCheckedChange={() => handleChecklistChange("goodCondition")}
-                      />
-                      <Label htmlFor="good-condition">Products are in good condition</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="nafdac-verified"
-                        checked={verificationChecklist.nafdacVerified}
-                        onCheckedChange={() => handleChecklistChange("nafdacVerified")}
-                      />
-                      <Label htmlFor="nafdac-verified">NAFDAC numbers are verified</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="expiry-dates"
-                        checked={verificationChecklist.expiryDates}
-                        onCheckedChange={() => handleChecklistChange("expiryDates")}
-                      />
-                      <Label htmlFor="expiry-dates">Expiration dates are acceptable</Label>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="verification-notes" className="mb-2 block font-medium">
-                    Additional Notes (Optional)
-                  </Label>
-                  <Textarea
-                    id="verification-notes"
-                    placeholder="Add any comments about the delivery or products..."
-                    className="min-h-[100px]"
-                  />
-                </div>
-
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Important</AlertTitle>
-                  <AlertDescription>
-                    By approving this order, you confirm that all products have been received as described and you
-                    authorize the release of funds from escrow to the seller.
-                  </AlertDescription>
-                </Alert>
               </div>
+
+              <div>
+                <h3 className="mb-2 font-medium">Verification Checklist</h3>
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="all-items"
+                      checked={verificationChecklist.allItems}
+                      onCheckedChange={() => handleChecklistChange("allItems")}
+                    />
+                    <Label htmlFor="all-items">All items were delivered as ordered</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="match-description"
+                      checked={verificationChecklist.matchDescription}
+                      onCheckedChange={() => handleChecklistChange("matchDescription")}
+                    />
+                    <Label htmlFor="match-description">Products match the descriptions</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="good-condition"
+                      checked={verificationChecklist.goodCondition}
+                      onCheckedChange={() => handleChecklistChange("goodCondition")}
+                    />
+                    <Label htmlFor="good-condition">Products are in good condition</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="nafdac-verified"
+                      checked={verificationChecklist.nafdacVerified}
+                      onCheckedChange={() => handleChecklistChange("nafdacVerified")}
+                    />
+                    <Label htmlFor="nafdac-verified">NAFDAC numbers are verified</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="expiry-dates"
+                      checked={verificationChecklist.expiryDates}
+                      onCheckedChange={() => handleChecklistChange("expiryDates")}
+                    />
+                    <Label htmlFor="expiry-dates">Expiration dates are acceptable</Label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="verification-notes" className="mb-2 block font-medium">
+                  Additional Notes (Optional)
+                </Label>
+                <Textarea
+                  id="verification-notes"
+                  placeholder="Add any comments about the delivery or products..."
+                  className="min-h-[100px]"
+                />
+              </div>
+
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Important</AlertTitle>
+                <AlertDescription>
+                  By approving this order, you confirm that all products have been received as described and you
+                  authorize the release of funds from escrow to the seller.
+                </AlertDescription>
+              </Alert>
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={handleBack}>
@@ -563,80 +560,78 @@ function EscrowPaymentSystemContent({
               <CardTitle>Payment Released!</CardTitle>
               <CardDescription>Thank you for verifying your order</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <Alert className="bg-emerald-50 border-emerald-200">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <AlertDescription className="text-emerald-700">
-                    Your payment has been released from escrow to the seller. The transaction is now complete.
-                  </AlertDescription>
-                </Alert>
+            <CardContent className="space-y-6">
+              <Alert className="bg-emerald-50 border-emerald-200">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-emerald-700">
+                  Your payment has been released from escrow to the seller. The transaction is now complete.
+                </AlertDescription>
+              </Alert>
 
-                <div>
-                  <h3 className="mb-2 font-medium">Rate Your Experience</h3>
-                  <div className="flex justify-center space-x-2 mb-4">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Button
-                        key={star}
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10 rounded-full"
-                        onClick={() => setRating(star)}
-                      >
-                        <Star
-                          className={`h-5 w-5 ${star <= rating ? "text-amber-400 fill-amber-400" : "text-gray-400"}`}
-                        />
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="feedback">Share Your Feedback</Label>
-                    <Textarea
-                      id="feedback"
-                      placeholder="Tell us about your experience with this seller and the products..."
-                      className="min-h-[100px]"
-                    />
-                  </div>
+              <div>
+                <h3 className="mb-2 font-medium">Rate Your Experience</h3>
+                <div className="flex justify-center space-x-2 mb-4">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Button
+                      key={star}
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full"
+                      onClick={() => setRating(star)}
+                    >
+                      <Star
+                        className={`h-5 w-5 ${star <= rating ? "text-amber-400 fill-amber-400" : "text-gray-400"}`}
+                      />
+                    </Button>
+                  ))}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="feedback">Share Your Feedback</Label>
+                  <Textarea
+                    id="feedback"
+                    placeholder="Tell us about your experience with this seller and the products..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
 
-                <div>
-                  <h3 className="mb-2 font-medium">Transaction Summary</h3>
-                  <div className="rounded-lg border p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <p className="text-sm text-gray-500">Order ID</p>
-                        <p className="font-medium">{orderId}</p>
-                      </div>
-                      <div className="flex justify-between">
-                        <p className="text-sm text-gray-500">Seller</p>
-                        <p className="font-medium">{sellerName}</p>
-                      </div>
-                      <div className="flex justify-between">
-                        <p className="text-sm text-gray-500">Order Date</p>
-                        <p className="font-medium">May 5, 2023</p>
-                      </div>
-                      <div className="flex justify-between">
-                        <p className="text-sm text-gray-500">Completion Date</p>
-                        <p className="font-medium">May 7, 2023</p>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="flex justify-between font-medium">
-                        <p>Total Amount</p>
-                        <p>₦{finalAmount.toLocaleString()}</p>
-                      </div>
+              <div>
+                <h3 className="mb-2 font-medium">Transaction Summary</h3>
+                <div className="rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-sm text-gray-500">Order ID</p>
+                      <p className="font-medium">{orderId}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-gray-500">Seller</p>
+                      <p className="font-medium">{cartItems[0].sellerName}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">May 5, 2023</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-gray-500">Completion Date</p>
+                      <p className="font-medium">May 7, 2023</p>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-medium">
+                      <p>Total Amount</p>
+                      <p>₦{total.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex justify-center">
-                  <div className="rounded-lg bg-gray-50 p-4 text-center">
-                    <FileText className="mx-auto mb-2 h-6 w-6 text-gray-500" />
-                    <p className="font-medium">Transaction Receipt</p>
-                    <p className="text-sm text-gray-500">A receipt has been sent to your email</p>
-                    <Button variant="link" size="sm" className="mt-2">
-                      Download Receipt
-                    </Button>
-                  </div>
+              <div className="flex justify-center">
+                <div className="rounded-lg bg-gray-50 p-4 text-center">
+                  <FileText className="mx-auto mb-2 h-6 w-6 text-gray-500" />
+                  <p className="font-medium">Transaction Receipt</p>
+                  <p className="text-sm text-gray-500">A receipt has been sent to your email</p>
+                  <Button variant="link" size="sm" className="mt-2">
+                    Download Receipt
+                  </Button>
                 </div>
               </div>
             </CardContent>

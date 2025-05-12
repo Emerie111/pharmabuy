@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import BioequivalenceInfo from "@/components/marketplace/bioequivalence-info"
 import { getGenericDrugById, getAllGenericDrugs } from "@/components/marketplace/product-data"
-import { Suspense } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BioequivalenceDetails } from "@/components/marketplace/bioequivalence-details"
+import { useCartStore } from "@/components/marketplace/cartStore"
 
 interface BrandedProductPageProps {
   params: {
@@ -59,11 +60,32 @@ interface GenericDrug {
   brandProducts: BrandedProduct[]
 }
 
-export default async function BrandedProductPage({ params }: BrandedProductPageProps) {
+export default function BrandedProductPage({ params }: BrandedProductPageProps) {
+  const suppliersRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<string>("suppliers");
+  const [shouldScroll, setShouldScroll] = useState(false);
+  const { cartItems, setCartItems } = useCartStore();
+
+  // On mount, set tab based on hash
+  useEffect(() => {
+    if (window.location.hash === '#suppliers') {
+      setActiveTab('suppliers');
+      setShouldScroll(true);
+    }
+  }, []);
+
+  // Scroll when suppliers tab is active and shouldScroll is true
+  useEffect(() => {
+    if (activeTab === 'suppliers' && shouldScroll && suppliersRef.current) {
+      suppliersRef.current.scrollIntoView({ behavior: 'smooth' });
+      setShouldScroll(false);
+    }
+  }, [activeTab, shouldScroll]);
+
   // Wrap data fetching in try-catch
   try {
-    const drug = await getGenericDrugById(params.genericId) || 
-      (await getAllGenericDrugs()).find(d => 
+    const drug = getGenericDrugById(params.genericId) || 
+      getAllGenericDrugs().find(d => 
         d.name.toLowerCase() === params.genericId.toLowerCase()
       )
 
@@ -80,6 +102,37 @@ export default async function BrandedProductPage({ params }: BrandedProductPageP
     const prices = brand.suppliers.map(s => s.price)
     const minPrice = Math.min(...prices)
     const maxPrice = Math.max(...prices)
+
+    // Add to Cart handler
+    function handleAddToCart(supplier: Supplier) {
+      // Compose a unique id for the cart item (brand + supplier)
+      const cartId = `${brand.id}__${supplier.supplierId}`;
+      const existing = cartItems.find(item => item.id === cartId);
+      if (existing) {
+        // If already in cart, increment quantity
+        setCartItems(cartItems.map(item =>
+          item.id === cartId ? { ...item, quantity: item.quantity + supplier.minOrder } : item
+        ));
+      } else {
+        // Add new item to cart
+        setCartItems([
+          ...cartItems,
+          {
+            id: cartId,
+            name: `${brand.brandName} ${brand.strength}`,
+            price: supplier.price,
+            quantity: supplier.minOrder,
+            unit: brand.packSize,
+            supplier: supplier.supplierId,
+            verified: brand.verified,
+            image: brand.image,
+            brandId: brand.id,
+            genericId: drug.id,
+          }
+        ]);
+      }
+      // TODO: Integrate with backend API to persist cart
+    }
 
     return (
       <div className="min-h-screen bg-gray-50">
@@ -172,14 +225,14 @@ export default async function BrandedProductPage({ params }: BrandedProductPageP
           <div className="container mx-auto px-4 py-6">
             <Card>
               <CardContent className="p-6">
-                <Tabs defaultValue="suppliers">
+                <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="suppliers">
                   <TabsList>
                     <TabsTrigger value="suppliers">Suppliers ({brand.suppliers.length})</TabsTrigger>
                     <TabsTrigger value="details">Product Details</TabsTrigger>
                     <TabsTrigger value="bioequivalence">Bioequivalence</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="suppliers" className="mt-6">
+                  <TabsContent value="suppliers" className="mt-6" ref={suppliersRef}>
                     <div className="space-y-4">
                       {brand.suppliers.map((supplier, index) => (
                         <Card key={supplier.supplierId || index}>
@@ -195,7 +248,7 @@ export default async function BrandedProductPage({ params }: BrandedProductPageP
                                 <p className="text-sm text-gray-500">
                                   Min. Order: {supplier.minOrder} {brand.packSize}
                                 </p>
-                                <Button size="sm" className="mt-2">
+                                <Button size="sm" className="mt-2" onClick={() => handleAddToCart(supplier)}>
                                   <ShoppingCart className="h-4 w-4 mr-1" />
                                   Add to Cart
                                 </Button>

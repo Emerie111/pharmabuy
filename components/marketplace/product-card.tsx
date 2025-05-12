@@ -16,6 +16,20 @@ interface ProductCardProps {
   viewMode?: "grid" | "list"
 }
 
+function addToCart({ brandId, genericId, brandName, price, packSize, supplier, verified, image }: {
+  brandId: string;
+  genericId: string;
+  brandName: string;
+  price: number;
+  packSize: string;
+  supplier: string;
+  verified: boolean;
+  image: string;
+}) {
+  // Redirect to the brand's suppliers page with suppliers tab open
+  window.location.href = `/drugs/${encodeURIComponent(genericId.toLowerCase())}/${encodeURIComponent(brandName.toLowerCase())}#suppliers`;
+}
+
 export default function ProductCard({ brand, genericName, viewMode = "grid" }: ProductCardProps) {
   // Get aggregated supplier information
   const totalSuppliers = brand.suppliers.length;
@@ -153,7 +167,16 @@ export default function ProductCard({ brand, genericName, viewMode = "grid" }: P
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button size="sm" className="flex-1">
+            <Button size="sm" className="flex-1" onClick={() => addToCart({
+              brandId: brand.id,
+              genericId: genericName,
+              brandName: brand.brandName,
+              price: priceRange.min,
+              packSize: brand.packSize,
+              supplier: brand.suppliers[0]?.supplierId || '',
+              verified: brand.verified,
+              image: brand.image
+            })}>
               <ShoppingCart className="h-4 w-4 mr-1" />
               Add to Cart
             </Button>
