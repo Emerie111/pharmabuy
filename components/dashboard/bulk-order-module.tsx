@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertCircle, Check, FileSpreadsheet, ImageIcon, ShieldCheck, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,49 +13,101 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { fetchAllGenericDrugsWithDetails } from "@/lib/supabase-data-access"
+import type { GenericDrug, BrandedProduct } from "@/components/marketplace/product-data"
+
+// Set this to true to enable stock validation
+const VALIDATE_STOCK = true
+
+function findBrandAndGeneric(productName: string, allGenerics: GenericDrug[]): { generic: GenericDrug | undefined, brand: BrandedProduct | undefined } {
+  for (const generic of allGenerics) {
+    for (const brand of generic.brandProducts) {
+      // Match by brandName or productName (case-insensitive, loose match)
+      if (
+        brand.brandName.toLowerCase() === productName.toLowerCase() ||
+        brand.brandName.toLowerCase().includes(productName.toLowerCase()) ||
+        productName.toLowerCase().includes(brand.brandName.toLowerCase())
+      ) {
+        return { generic, brand }
+      }
+    }
+  }
+  return { generic: undefined, brand: undefined }
+}
 
 export default function BulkOrderModule() {
+  const [allGenericDrugsData, setAllGenericDrugsData] = useState<GenericDrug[]>([])
+  const [isLoadingDrugs, setIsLoadingDrugs] = useState(true)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [recognizedItems, setRecognizedItems] = useState<any[]>([
-    {
-      id: 1,
-      name: "Amoxicillin 500mg",
-      quantity: 100,
-      verified: true,
-      nafdacNumber: "A4-0123",
-      alternatives: 2,
-    },
-    {
-      id: 2,
-      name: "Paracetamol 500mg",
-      quantity: 200,
-      verified: true,
-      nafdacNumber: "A4-5678",
-      alternatives: 0,
-    },
-    {
-      id: 3,
-      name: "Metformin 850mg",
-      quantity: 50,
-      verified: false,
-      nafdacNumber: "Unverified",
-      alternatives: 3,
-    },
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null)
+  const [recognizedItems, setRecognizedItems] = useState([
+    { id: 1, name: "Floximox", quantity: 100 },
+    { id: 2, name: "Panadol", quantity: 200 },
+    { id: 3, name: "Emmox", quantity: 50 },
   ])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setUploadedFile(e.target.files[0])
-      // In a real app, you would process the file here
     }
   }
 
-  const removeFile = () => {
-    setUploadedFile(null)
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadedImage(e.target.files[0])
+    }
   }
 
-  const verifiedCount = recognizedItems.filter((item) => item.verified).length
+  useEffect(() => {
+    async function loadDrugData() {
+      setIsLoadingDrugs(true);
+      try {
+        const drugs = await fetchAllGenericDrugsWithDetails();
+        setAllGenericDrugsData(drugs);
+      } catch (error) {
+        console.error("Error fetching generic drugs for bulk order module:", error);
+        // Optionally, set an error state here to inform the user
+      }
+      setIsLoadingDrugs(false);
+    }
+    loadDrugData();
+  }, [])
+
+  const removeFile = () => setUploadedFile(null)
+  const removeImage = () => setUploadedImage(null)
+
+  // Quantity adjuster logic
+  const handleQuantityChange = (index: number, newQuantity: number, maxStock?: number) => {
+    setRecognizedItems((prev) => {
+      return prev.map((item, i) =>
+        i === index
+          ? { ...item, quantity: VALIDATE_STOCK && maxStock ? Math.min(Math.max(newQuantity, 1), maxStock) : Math.max(newQuantity, 1) }
+          : item
+      )
+    })
+  }
+
+  // For NAFDAC verified count
+  const verifiedCount = recognizedItems.filter((item) => {
+    const { brand } = findBrandAndGeneric(item.name, allGenericDrugsData)
+    return brand?.verified
+  }).length
   const totalCount = recognizedItems.length
+
+  if (isLoadingDrugs) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Bulk Order</CardTitle>
+          <CardDescription>Loading product data...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Please wait while we fetch the latest product information.</p>
+          {/* Optionally, add a spinner here */}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -125,10 +177,33 @@ export default function BulkOrderModule() {
                 <ImageIcon className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                 <p className="text-sm text-gray-500 mb-2">Drag and drop an image of your prescription or order list</p>
                 <p className="text-xs text-gray-400 mb-4">Supported formats: JPG, PNG, PDF (Max 10MB)</p>
-                <Button variant="outline" size="sm">
+                <Input
+                  type="file"
+                  id="image-upload"
+                  className="hidden"
+                  accept="image/*,application/pdf"
+                  onChange={handleImageUpload}
+                />
+                <Button variant="outline" size="sm" asChild>
+                  <label htmlFor="image-upload" className="cursor-pointer">
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Image
+                  </label>
                 </Button>
+                {uploadedImage && (
+                  <div className="flex items-center justify-between bg-green-50 p-3 rounded mt-4">
+                    <div className="flex items-center">
+                      <ImageIcon className="h-6 w-6 text-green-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium">{uploadedImage.name}</p>
+                        <p className="text-xs text-gray-500">{(uploadedImage.size / 1024).toFixed(2)} KB</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={removeImage}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Alert>
@@ -175,7 +250,8 @@ export default function BulkOrderModule() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product Name</TableHead>
+                  <TableHead>Product (Brand)</TableHead>
+                  <TableHead>Generic</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>NAFDAC Status</TableHead>
                   <TableHead>Alternatives</TableHead>
@@ -183,33 +259,76 @@ export default function BulkOrderModule() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recognizedItems.map((item) => (
+                {recognizedItems.map((item, idx) => {
+                  const { generic, brand } = findBrandAndGeneric(item.name, allGenericDrugsData)
+                  const alternatives = generic?.brandProducts.filter(b => b.id !== brand?.id) || []
+                  const maxStock = VALIDATE_STOCK ? brand?.suppliers.reduce((sum, s) => sum + s.stock, 0) : undefined
+                  return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {brand ? (
+                          <div className="flex items-center gap-2">
+                            <img src={brand.image} alt={brand.brandName} className="w-10 h-10 object-cover rounded" />
+                            <div>
+                              <div>{brand.brandName}</div>
+                              <div className="text-xs text-gray-500">{brand.strength} {brand.dosageForm}</div>
+                            </div>
+                          </div>
+                        ) : item.name}
+                      </TableCell>
+                      <TableCell>{generic ? generic.name : "-"}</TableCell>
                     <TableCell>
-                      <Input type="number" value={item.quantity} className="w-20 h-8" min={1} />
+                        <div className="flex items-center gap-2">
+                          <Button size="icon" variant="outline" onClick={() => handleQuantityChange(idx, item.quantity - 1, maxStock)}>-</Button>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            min={1}
+                            max={maxStock}
+                            onChange={e => handleQuantityChange(idx, Number(e.target.value), maxStock)}
+                            className="w-20 h-8"
+                          />
+                          <Button size="icon" variant="outline" onClick={() => handleQuantityChange(idx, item.quantity + 1, maxStock)}>+</Button>
+                          {VALIDATE_STOCK && maxStock !== undefined && (
+                            <span className="text-xs text-gray-500 ml-2">/ {maxStock} in stock</span>
+                          )}
+                        </div>
                     </TableCell>
                     <TableCell>
-                      {item.verified ? (
+                        {brand?.verified ? (
                         <Badge className="bg-green-500 flex items-center gap-1 w-fit">
-                          <ShieldCheck className="h-3 w-3" />
-                          Verified
+                            <ShieldCheck className="h-3 w-3" /> Verified
                         </Badge>
                       ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-amber-600 border-amber-300 bg-amber-50 flex items-center gap-1 w-fit"
-                        >
-                          <AlertCircle className="h-3 w-3" />
-                          Unverified
+                          <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 flex items-center gap-1 w-fit">
+                            <AlertCircle className="h-3 w-3" /> Unverified
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      {item.alternatives > 0 ? (
+                        {alternatives.length > 0 ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                         <Button variant="link" size="sm" className="h-5 p-0">
-                          View {item.alternatives} alternatives
+                                  View {alternatives.length} alternatives
                         </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-2">
+                                  {alternatives.map((alt) => (
+                                    <div key={alt.id} className="flex items-center gap-2">
+                                      <img src={alt.image} alt={alt.brandName} className="w-8 h-8 object-cover rounded" />
+                                      <div>
+                                        <div className="font-medium">{alt.brandName}</div>
+                                        <div className="text-xs text-gray-500">{alt.strength} {alt.dosageForm}</div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                       ) : (
                         <span className="text-gray-500 text-sm">None available</span>
                       )}
@@ -231,10 +350,10 @@ export default function BulkOrderModule() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
-
             <div className="flex justify-between items-center mt-6">
               <Button variant="outline">Add More Items</Button>
               <div className="flex gap-2">

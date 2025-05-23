@@ -1,5 +1,3 @@
-"use client"
-
 import { Metadata } from "next"
 import { ShieldCheck } from "lucide-react"
 import VerificationCenter from "@/components/verification/verification-center"

@@ -8,12 +8,25 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import BioequivalenceInfo from "./bioequivalence-info"
 import type { BrandedProduct } from "./product-data"
-import { getSupplierByName } from "./product-data"
 
 interface ProductCardProps {
   brand: BrandedProduct
   genericName: string
   viewMode?: "grid" | "list"
+}
+
+function addToCart({ brandId, genericId, brandName, price, packSize, supplier, verified, image }: {
+  brandId: string;
+  genericId: string;
+  brandName: string;
+  price: number;
+  packSize: string;
+  supplier: string;
+  verified: boolean;
+  image: string;
+}) {
+  // Redirect to the brand's suppliers page with suppliers tab open
+  window.location.href = `/drugs/${encodeURIComponent(genericId.toLowerCase())}/${encodeURIComponent(brandId)}/${encodeURIComponent(brandName)}#suppliers`;
 }
 
 export default function ProductCard({ brand, genericName, viewMode = "grid" }: ProductCardProps) {
@@ -120,7 +133,7 @@ export default function ProductCard({ brand, genericName, viewMode = "grid" }: P
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link 
-                    href={`/drugs/${encodeURIComponent(genericName.toLowerCase())}/${encodeURIComponent(brand.brandName.toLowerCase())}`} 
+                    href={`/drugs/${encodeURIComponent(genericName.toLowerCase())}/${encodeURIComponent(brand.id)}/${encodeURIComponent(brand.brandName)}`} 
                     className="flex-1"
                   >
                     <Button size="sm" variant="outline" className="w-full">
@@ -153,7 +166,16 @@ export default function ProductCard({ brand, genericName, viewMode = "grid" }: P
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button size="sm" className="flex-1">
+            <Button size="sm" className="flex-1" onClick={() => addToCart({
+              brandId: brand.id,
+              genericId: genericName,
+              brandName: brand.brandName,
+              price: priceRange.min,
+              packSize: brand.packSize,
+              supplier: brand.suppliers[0]?.supplierId || '',
+              verified: brand.verified,
+              image: brand.image
+            })}>
               <ShoppingCart className="h-4 w-4 mr-1" />
               Add to Cart
             </Button>

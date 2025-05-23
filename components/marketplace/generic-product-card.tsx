@@ -7,13 +7,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { GenericDrug } from "./product-data"
 
 interface GenericProductCardProps {
-  drug: GenericDrug
+  data: GenericDrug
   viewMode?: "grid" | "list"
 }
 
-export default function GenericProductCard({ drug, viewMode = "grid" }: GenericProductCardProps) {
+export default function GenericProductCard({ data, viewMode = "grid" }: GenericProductCardProps) {
   // Calculate ranges and statistics
-  const priceRange = drug.brandProducts.reduce(
+  const priceRange = data.brandProducts.reduce(
     (acc, brand) => {
       const lowestPrice = Math.min(...brand.suppliers.map(s => s.price))
       return {
@@ -24,7 +24,7 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
     { min: Infinity, max: 0 }
   )
 
-  const bioequivalenceRange = drug.brandProducts.reduce(
+  const bioequivalenceRange = data.brandProducts.reduce(
     (acc, brand) => {
       if (typeof brand.bioequivalence === 'number') {
         return {
@@ -37,11 +37,11 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
     { min: Infinity, max: 0 }
   )
 
-  const verifiedBrandsCount = drug.brandProducts.filter(b => b.verified).length
-  const averageRating = drug.brandProducts.reduce((sum, brand) => sum + brand.rating, 0) / drug.brandProducts.length
+  const verifiedBrandsCount = data.brandProducts.filter(b => b.verified).length
+  const averageRating = data.brandProducts.reduce((sum, brand) => sum + brand.rating, 0) / data.brandProducts.length
 
   // Get the first brand's strength as reference (assuming all brands have same strength)
-  const strength = drug.brandProducts[0]?.strength || ""
+  const strength = data.brandProducts[0]?.strength || ""
 
   return (
     <Card className={`overflow-hidden transition-all duration-200 hover:shadow-md ${
@@ -50,8 +50,8 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
       <CardContent className={`p-0 ${viewMode === "list" ? "flex flex-1" : ""}`}>
         <div className={`relative ${viewMode === "list" ? "w-48" : ""}`}>
           <img
-            src={drug.brandProducts[0]?.image || "/placeholder.svg"}
-            alt={drug.name}
+            src={data.brandProducts[0]?.image || "/placeholder.svg"}
+            alt={data.name}
             className={`${viewMode === "list" ? "w-48" : "w-full"} h-48 object-cover`}
           />
 
@@ -77,7 +77,7 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
           {/* Category Badge */}
           <div className="absolute bottom-2 left-2">
             <Badge variant="secondary">
-              {drug.category.charAt(0).toUpperCase() + drug.category.slice(1)}
+              {data.category.charAt(0).toUpperCase() + data.category.slice(1)}
             </Badge>
           </div>
         </div>
@@ -85,12 +85,9 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
         <div className="p-4 flex-1">
           <div className="flex justify-between items-start mb-2">
             <div>
-              <h3 className="font-bold text-lg">{drug.name} {strength}</h3>
+              <h3 className="font-bold text-lg">{data.name} {strength}</h3>
               <p className="text-sm text-gray-500">
-                {drug.brandProducts.length} Brand{drug.brandProducts.length !== 1 ? 's' : ''} Available
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {drug.description}
+                {data.brandProducts.length} Brand{data.brandProducts.length !== 1 ? 's' : ''} Available
               </p>
             </div>
           </div>
@@ -116,7 +113,7 @@ export default function GenericProductCard({ drug, viewMode = "grid" }: GenericP
           )}
 
           <Link 
-            href={`/drugs/${encodeURIComponent(drug.id)}`}
+            href={`/drugs/${encodeURIComponent(data.id)}`}
             className="mt-2 block"
           >
             <Button className="w-full">

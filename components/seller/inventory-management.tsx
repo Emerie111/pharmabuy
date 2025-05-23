@@ -29,6 +29,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 
+// Define props for the component
+interface InventoryManagementProps {
+  openAddProductModal: () => void;
+}
+
 // Sample inventory data
 const inventoryData = [
   {
@@ -152,7 +157,7 @@ const inventoryData = [
   },
 ]
 
-export default function InventoryManagement() {
+export default function InventoryManagement({ openAddProductModal }: InventoryManagementProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [selectedProducts, setSelectedProducts] = useState<(string | number)[]>([])
   const [fileProcessing, setFileProcessing] = useState(false)
@@ -207,7 +212,7 @@ export default function InventoryManagement() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button>
+          <Button onClick={openAddProductModal}>
             <Plus className="h-4 w-4 mr-2" />
             Add Product
           </Button>
@@ -238,7 +243,7 @@ export default function InventoryManagement() {
                     <Download className="h-4 w-4 mr-2" />
                     Export CSV
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={openAddProductModal}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Product
                   </DropdownMenuItem>
