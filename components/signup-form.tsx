@@ -46,11 +46,11 @@ export default function SignupForm() {
       setError(error.message)
       return
     }
-    // Redirect based on role
+    // Redirect to the appropriate onboarding flow
     if (role === "buyer") {
-      router.push("/buyer-dashboard")
+      router.push("/healthcare-provider-onboarding")
     } else {
-      router.push("/seller-dashboard")
+      router.push("/supplier-onboarding")
     }
   }
 
@@ -125,7 +125,7 @@ export default function SignupForm() {
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-sm text-center text-gray-500">
           Already have an account?{" "}
-          <a href="#" className="text-blue-600 hover:underline">
+          <a href="/signin" className="text-blue-600 hover:underline">
             Sign in
           </a>
         </div>

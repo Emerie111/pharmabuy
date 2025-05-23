@@ -46,7 +46,7 @@ async function importData() {
             verified: brand.verified,
             rating: brand.rating,
             image: brand.image,
-            bioequivalence: brand.bioequivalence,
+            bioequivalence: (typeof brand.bioequivalence === 'number') ? brand.bioequivalence : null,
             nafdac_number: brand.nafdacNumber,
             type: brand.type,
             country_of_origin: brand.countryOfOrigin

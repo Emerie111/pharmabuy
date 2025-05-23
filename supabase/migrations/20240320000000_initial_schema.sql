@@ -137,4 +137,20 @@ CREATE POLICY "Authenticated users can update generic drugs" ON generic_drugs
 CREATE POLICY "Authenticated users can delete generic drugs" ON generic_drugs
     FOR DELETE USING (auth.role() = 'authenticated');
 
--- Similar policies for other tables... 
+-- Similar policies for other tables...
+
+-- Create roles table
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+
+-- Create user_roles table
+CREATE TABLE user_roles (
+    user_id TEXT NOT NULL,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
+);
+
+-- Insert default roles
+INSERT INTO roles (name) VALUES ('supplier'), ('healthcare_provider'); 

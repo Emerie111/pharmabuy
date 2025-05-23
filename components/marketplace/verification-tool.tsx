@@ -12,35 +12,92 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 
+interface VerificationResult {
+  status: 'verified' | 'unverified'
+  product?: {
+    brandName: string
+    manufacturer: string
+    strength: string
+    dosageForm: string
+    packSize: string
+    genericName: string
+    category: string
+    description: string
+    indication: string
+    nafdacNumber: string
+    countryOfOrigin: string
+    type: 'prescription' | 'otc'
+    verified: boolean
+    rating: number
+    bioequivalence: number | 'pending' | 'N/A'
+  }
+  message?: string
+}
+
 export default function VerificationTool() {
   const [nafdacCode, setNafdacCode] = useState("")
-  const [verificationResult, setVerificationResult] = useState<null | "verified" | "unverified">(null)
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [batchCodes, setBatchCodes] = useState("")
   const [batchResults, setBatchResults] = useState<any[] | null>(null)
   const [isScanning, setIsScanning] = useState(false)
 
-  const handleVerify = () => {
-    // In a real app, this would call an API to verify the NAFDAC code
-    if (nafdacCode.startsWith("A4-")) {
-      setVerificationResult("verified")
-    } else {
-      setVerificationResult("unverified")
+  const handleVerify = async () => {
+    if (!nafdacCode.trim()) return
+    
+    setIsVerifying(true)
+    setVerificationResult(null)
+    
+    try {
+      const response = await fetch('/api/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nafdacCode: nafdacCode.trim() }),
+      })
+      
+      const result = await response.json()
+      setVerificationResult(result)
+    } catch (error) {
+      console.error('Error verifying NAFDAC code:', error)
+      setVerificationResult({
+        status: 'unverified',
+        message: 'An error occurred while verifying the NAFDAC code'
+      })
+    } finally {
+      setIsVerifying(false)
     }
   }
 
-  const handleBatchVerify = () => {
-    // In a real app, this would call an API to verify multiple codes
+  const handleBatchVerify = async () => {
     const codes = batchCodes.split("\n").filter((code) => code.trim() !== "")
-    const results = codes.map((code) => ({
-      code: code.trim(),
-      status: code.trim().startsWith("A4-") ? "verified" : "unverified",
-      product: code.trim().startsWith("A4-") ? "Sample Product " + Math.floor(Math.random() * 100) : "Unknown",
-      manufacturer: code.trim().startsWith("A4-") ? "Sample Manufacturer" : "Unknown",
-      registration: code.trim().startsWith("A4-") ? "NAFDAC-" + Math.floor(Math.random() * 10000) : "Unknown",
-      mfgDate: code.trim().startsWith("A4-") ? "2023-01-01" : "Unknown",
-      expDate: code.trim().startsWith("A4-") ? "2025-01-01" : "Unknown",
-    }))
-
+    const results = []
+    
+    for (const code of codes) {
+      try {
+        const response = await fetch('/api/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ nafdacCode: code.trim() }),
+        })
+        
+        const result = await response.json()
+        results.push({
+          code: code.trim(),
+          ...result
+        })
+      } catch (error) {
+        results.push({
+          code: code.trim(),
+          status: 'error',
+          message: 'Error verifying code'
+        })
+      }
+    }
+    
     setBatchResults(results)
   }
 
@@ -83,9 +140,19 @@ export default function VerificationTool() {
                       <Camera className="h-4 w-4" />
                     </Button>
                   </div>
-                  <Button onClick={handleVerify} disabled={!nafdacCode} className="sm:w-auto">
-                    <Search className="h-4 w-4 mr-2" />
-                    Verify
+                  <Button 
+                    onClick={handleVerify} 
+                    disabled={!nafdacCode || isVerifying} 
+                    className="sm:w-auto"
+                  >
+                    {isVerifying ? (
+                      "Verifying..."
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Verify
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -99,7 +166,7 @@ export default function VerificationTool() {
                   </div>
                 )}
 
-                {verificationResult === "verified" && (
+                {verificationResult?.status === "verified" && verificationResult.product && (
                   <Alert className="bg-green-50 border-green-200">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
                     <AlertTitle className="text-green-800">Product Verified</AlertTitle>
@@ -110,35 +177,62 @@ export default function VerificationTool() {
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h4 className="text-sm font-medium text-green-800">Product Details</h4>
-                        <p className="text-sm text-green-700">Amoxicillin 500mg</p>
-                        <p className="text-xs text-green-600">Capsules, 100 count</p>
+                        <p className="text-sm text-green-700">{verificationResult.product.brandName}</p>
+                        <p className="text-xs text-green-600">
+                          {verificationResult.product.strength} {verificationResult.product.dosageForm}
+                          {verificationResult.product.packSize && `, ${verificationResult.product.packSize}`}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          Generic: {verificationResult.product.genericName}
+                        </p>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-green-800">Manufacturer</h4>
-                        <p className="text-sm text-green-700">PharmaNigeria Ltd</p>
-                        <p className="text-xs text-green-600">Lagos, Nigeria</p>
+                        <p className="text-sm text-green-700">{verificationResult.product.manufacturer}</p>
+                        <p className="text-xs text-green-600">{verificationResult.product.countryOfOrigin}</p>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-green-800">NAFDAC Registration</h4>
-                        <p className="text-sm text-green-700">NAFDAC-12345</p>
-                        <p className="text-xs text-green-600">Valid until 2025-12-31</p>
+                        <p className="text-sm text-green-700">{verificationResult.product.nafdacNumber}</p>
+                        <p className="text-xs text-green-600">
+                          Type: {verificationResult.product.type === 'otc' ? 'Over the Counter' : 'Prescription'}
+                        </p>
                       </div>
                       <div>
-                        <h4 className="text-sm font-medium text-green-800">Dates</h4>
-                        <p className="text-sm text-green-700">Manufactured: 2023-01-01</p>
-                        <p className="text-xs text-green-600">Expires: 2025-01-01</p>
+                        <h4 className="text-sm font-medium text-green-800">Quality Information</h4>
+                        <p className="text-sm text-green-700">
+                          Rating: {verificationResult.product.rating.toFixed(1)}/5.0
+                        </p>
+                        <p className="text-xs text-green-600">
+                          Bioequivalence: {
+                            typeof verificationResult.product.bioequivalence === 'number' 
+                              ? `${verificationResult.product.bioequivalence}%`
+                              : verificationResult.product.bioequivalence
+                          }
+                        </p>
                       </div>
                     </div>
+
+                    {verificationResult.product.description && (
+                      <div className="mt-4 pt-4 border-t border-green-200">
+                        <h4 className="text-sm font-medium text-green-800 mb-2">Product Information</h4>
+                        <p className="text-sm text-green-700">{verificationResult.product.description}</p>
+                        {verificationResult.product.indication && (
+                          <p className="text-sm text-green-700 mt-2">
+                            <span className="font-medium">Indication:</span> {verificationResult.product.indication}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </Alert>
                 )}
 
-                {verificationResult === "unverified" && (
+                {verificationResult?.status === "unverified" && (
                   <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Product Not Verified</AlertTitle>
                     <AlertDescription>
-                      This NAFDAC code could not be verified. The product may be counterfeit or the code may be
-                      incorrect.
+                      {verificationResult.message || 'This NAFDAC code could not be verified. The product may be counterfeit or the code may be incorrect.'}
                     </AlertDescription>
 
                     <div className="mt-4">
@@ -152,19 +246,21 @@ export default function VerificationTool() {
               </TabsContent>
 
               <TabsContent value="batch" className="space-y-4">
-                <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                  <FileUp className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500 mb-2">Drag and drop your CSV file here or click to browse</p>
-                  <p className="text-xs text-gray-400 mb-4">Maximum file size: 5MB. Format: CSV with NAFDAC codes</p>
-                  <Button variant="outline" size="sm">
-                    Select File
-                  </Button>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button onClick={handleBatchVerify} disabled={!batchCodes.trim()}>
-                    Verify All Codes
-                  </Button>
+                <div className="space-y-4">
+                  <Textarea
+                    placeholder="Enter NAFDAC codes (one per line)"
+                    value={batchCodes}
+                    onChange={(e) => setBatchCodes(e.target.value)}
+                    className="min-h-[200px]"
+                  />
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={handleBatchVerify} 
+                      disabled={!batchCodes.trim()}
+                    >
+                      Verify All Codes
+                    </Button>
+                  </div>
                 </div>
 
                 {batchResults && batchResults.length > 0 && (
@@ -178,8 +274,8 @@ export default function VerificationTool() {
                             <TableHead>Status</TableHead>
                             <TableHead>Product</TableHead>
                             <TableHead>Manufacturer</TableHead>
-                            <TableHead>Registration</TableHead>
-                            <TableHead>Dates</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Details</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -199,31 +295,47 @@ export default function VerificationTool() {
                                   </Badge>
                                 )}
                               </TableCell>
-                              <TableCell>{result.product}</TableCell>
-                              <TableCell>{result.manufacturer}</TableCell>
-                              <TableCell>{result.registration}</TableCell>
                               <TableCell>
-                                <div className="text-xs">
-                                  <div>Mfg: {result.mfgDate}</div>
-                                  <div>Exp: {result.expDate}</div>
-                                </div>
+                                {result.product ? (
+                                  <>
+                                    <p className="font-medium">{result.product.brandName}</p>
+                                    <p className="text-xs text-gray-500">{result.product.genericName}</p>
+                                  </>
+                                ) : (
+                                  "Unknown"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {result.product ? (
+                                  <>
+                                    <p>{result.product.manufacturer}</p>
+                                    <p className="text-xs text-gray-500">{result.product.countryOfOrigin}</p>
+                                  </>
+                                ) : (
+                                  "Unknown"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {result.product ? (
+                                  result.product.type === 'otc' ? 'Over the Counter' : 'Prescription'
+                                ) : (
+                                  "Unknown"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {result.product ? (
+                                  <>
+                                    <p>{result.product.strength} {result.product.dosageForm}</p>
+                                    <p className="text-xs text-gray-500">{result.product.packSize}</p>
+                                  </>
+                                ) : (
+                                  "Unknown"
+                                )}
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
-
-                    <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div className="text-sm">
-                        <span className="font-medium">Summary: </span>
-                        {batchResults.filter((r) => r.status === "verified").length} verified,{" "}
-                        {batchResults.filter((r) => r.status === "unverified").length} unverified
-                      </div>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Download className="h-4 w-4" />
-                        Export Results
-                      </Button>
                     </div>
                   </div>
                 )}
@@ -233,7 +345,7 @@ export default function VerificationTool() {
         </Card>
       </div>
 
-      {/* Right Column - Educational Content */}
+      {/* Right Column - Instructions */}
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -271,10 +383,9 @@ export default function VerificationTool() {
                   <span className="text-green-800 text-xs font-bold">3</span>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium">Check the Results</h3>
+                  <h3 className="text-sm font-medium">Verify Authenticity</h3>
                   <p className="text-xs text-gray-500">
-                    Verify that the product details match what you have. If there's a mismatch or the code is invalid,
-                    report it immediately.
+                    Click verify to check if the product is registered with NAFDAC and view detailed product information.
                   </p>
                 </div>
               </div>
@@ -284,70 +395,39 @@ export default function VerificationTool() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Counterfeit Alerts</CardTitle>
+            <CardTitle>Why Verify?</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Fake Antimalarial Medication</AlertTitle>
-                <AlertDescription>
-                  Counterfeit antimalarial medications have been identified in several markets. These products contain
-                  insufficient active ingredients.
-                </AlertDescription>
-                <div className="mt-1 text-xs">May 28, 2023</div>
-                <div className="mt-1 text-xs text-red-400">Affected Regions: Lagos, Abuja, Port Harcourt</div>
-              </Alert>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <ShieldCheck className="h-5 w-5 text-green-600 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium">Ensure Product Safety</h3>
+                  <p className="text-xs text-gray-500">
+                    Verify that your medication is registered with NAFDAC and meets safety standards.
+                  </p>
+                </div>
+              </div>
 
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Counterfeit Antibiotics</AlertTitle>
-                <AlertDescription>
-                  Fake antibiotics with incorrect NAFDAC numbers have been found in circulation.
-                </AlertDescription>
-                <div className="mt-1 text-xs">May 25, 2023</div>
-                <div className="mt-1 text-xs text-red-400">Affected Regions: Kano, Kaduna</div>
-              </Alert>
+              <div className="flex gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium">Avoid Counterfeits</h3>
+                  <p className="text-xs text-gray-500">
+                    Protect yourself from counterfeit or unregistered products that may be harmful.
+                  </p>
+                </div>
+              </div>
 
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Fake Pain Relievers</AlertTitle>
-                <AlertDescription>
-                  Counterfeit pain relievers with similar packaging to authentic products have been identified.
-                </AlertDescription>
-                <div className="mt-1 text-xs">May 20, 2023</div>
-                <div className="mt-1 text-xs text-red-400">Affected Regions: Nationwide</div>
-              </Alert>
-
-              <Button variant="link" className="w-full text-sm">
-                View All Alerts
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Educational Resources</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                How to Identify Authentic Medications
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                Understanding NAFDAC Registration
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                Reporting Counterfeit Products
-              </Button>
-              <Separator className="my-2" />
-              <Button variant="outline" className="w-full justify-start">
-                Visit Official NAFDAC Website
-              </Button>
-              <Button variant="default" className="w-full">
-                Report Suspicious Product
-              </Button>
+              <div className="flex gap-2">
+                <Search className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium">Get Product Details</h3>
+                  <p className="text-xs text-gray-500">
+                    Access comprehensive information about the product, including manufacturer details and quality ratings.
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

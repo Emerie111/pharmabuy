@@ -7,9 +7,23 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+// const isDevelopment = process.env.NODE_ENV === 'development'; // No longer needed here
+
 export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // storageKey: 'supabase.auth.token', // Default is fine
+      // cookieOptions: { // This was incorrect for the base client
+      //   secure: !isDevelopment,
+      //   sameSite: isDevelopment ? 'lax' : 'strict',
+      // },
+    },
+  }
 )
 
 // Database types

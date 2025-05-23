@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertCircle, Check, FileSpreadsheet, ImageIcon, ShieldCheck, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,13 +13,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { getAllGenericDrugs, type GenericDrug, type BrandedProduct } from "@/components/marketplace/product-data"
+import { fetchAllGenericDrugsWithDetails } from "@/lib/supabase-data-access"
+import type { GenericDrug, BrandedProduct } from "@/components/marketplace/product-data"
 
 // Set this to true to enable stock validation
 const VALIDATE_STOCK = true
 
-function findBrandAndGeneric(productName: string): { generic: GenericDrug | undefined, brand: BrandedProduct | undefined } {
-  const allGenerics = getAllGenericDrugs()
+function findBrandAndGeneric(productName: string, allGenerics: GenericDrug[]): { generic: GenericDrug | undefined, brand: BrandedProduct | undefined } {
   for (const generic of allGenerics) {
     for (const brand of generic.brandProducts) {
       // Match by brandName or productName (case-insensitive, loose match)
@@ -36,6 +36,8 @@ function findBrandAndGeneric(productName: string): { generic: GenericDrug | unde
 }
 
 export default function BulkOrderModule() {
+  const [allGenericDrugsData, setAllGenericDrugsData] = useState<GenericDrug[]>([])
+  const [isLoadingDrugs, setIsLoadingDrugs] = useState(true)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [uploadedImage, setUploadedImage] = useState<File | null>(null)
   const [recognizedItems, setRecognizedItems] = useState([
@@ -56,6 +58,21 @@ export default function BulkOrderModule() {
     }
   }
 
+  useEffect(() => {
+    async function loadDrugData() {
+      setIsLoadingDrugs(true);
+      try {
+        const drugs = await fetchAllGenericDrugsWithDetails();
+        setAllGenericDrugsData(drugs);
+      } catch (error) {
+        console.error("Error fetching generic drugs for bulk order module:", error);
+        // Optionally, set an error state here to inform the user
+      }
+      setIsLoadingDrugs(false);
+    }
+    loadDrugData();
+  }, [])
+
   const removeFile = () => setUploadedFile(null)
   const removeImage = () => setUploadedImage(null)
 
@@ -71,12 +88,26 @@ export default function BulkOrderModule() {
   }
 
   // For NAFDAC verified count
-  const allGenerics = getAllGenericDrugs()
   const verifiedCount = recognizedItems.filter((item) => {
-    const { brand } = findBrandAndGeneric(item.name)
+    const { brand } = findBrandAndGeneric(item.name, allGenericDrugsData)
     return brand?.verified
   }).length
   const totalCount = recognizedItems.length
+
+  if (isLoadingDrugs) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Bulk Order</CardTitle>
+          <CardDescription>Loading product data...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Please wait while we fetch the latest product information.</p>
+          {/* Optionally, add a spinner here */}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -229,7 +260,7 @@ export default function BulkOrderModule() {
               </TableHeader>
               <TableBody>
                 {recognizedItems.map((item, idx) => {
-                  const { generic, brand } = findBrandAndGeneric(item.name)
+                  const { generic, brand } = findBrandAndGeneric(item.name, allGenericDrugsData)
                   const alternatives = generic?.brandProducts.filter(b => b.id !== brand?.id) || []
                   const maxStock = VALIDATE_STOCK ? brand?.suppliers.reduce((sum, s) => sum + s.stock, 0) : undefined
                   return (

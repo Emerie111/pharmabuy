@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Info, Upload } from "lucide-react"
+import { Info, Upload, AlertCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import OnboardingLayout, { FormField } from "@/components/onboarding-layout"
+import { supabase } from "@/lib/supabase"
 
 export default function BuyerOnboarding() {
   const router = useRouter()
@@ -19,18 +20,41 @@ export default function BuyerOnboarding() {
   const [formData, setFormData] = useState({
     profession: "",
     licenseNumber: "",
-    licenseFile: null,
+    licenseFile: null as File | null,
+    // Step 2 data
+    businessName: "",
+    address: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "",
+    // Step 3 data
+    contactName: "",
+    phoneNumber: "",
+    email: "",
+    website: "",
   })
   const [errors, setErrors] = useState({
     profession: false,
     licenseNumber: false,
     licenseFile: false,
+    businessName: false,
+    address: false,
+    city: false,
+    state: false,
+    country: false,
+    contactName: false,
+    phoneNumber: false,
+    email: false,
   })
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate current step
     if (currentStep === 1) {
       const newErrors = {
+        ...errors,
         profession: !formData.profession,
         licenseNumber: !formData.licenseNumber,
         licenseFile: !formData.licenseFile,
@@ -41,13 +65,89 @@ export default function BuyerOnboarding() {
       if (Object.values(newErrors).some(Boolean)) {
         return
       }
+    } else if (currentStep === 2) {
+      const newErrors = {
+        ...errors,
+        businessName: !formData.businessName,
+        address: !formData.address,
+        city: !formData.city,
+        state: !formData.state,
+        country: !formData.country,
+      }
+
+      setErrors(newErrors)
+
+      if (Object.values(newErrors).some(Boolean)) {
+        return
+      }
+    } else if (currentStep === 3) {
+      const newErrors = {
+        ...errors,
+        contactName: !formData.contactName,
+        phoneNumber: !formData.phoneNumber,
+        email: !formData.email,
+      }
+
+      setErrors(newErrors)
+
+      if (Object.values(newErrors).some(Boolean)) {
+        return
+      }
+      
+      // Complete onboarding
+      setIsSubmitting(true)
+      setApiError(null)
+      
+      try {
+        // Format full address
+        const fullAddress = `${formData.address}, ${formData.city}, ${formData.state}, ${formData.postalCode}, ${formData.country}`
+        
+        // Get user info from Auth
+        const { data: userData } = await supabase.auth.getUser()
+        if (!userData?.user) {
+          throw new Error("User not authenticated")
+        }
+        
+        // Create healthcare provider data
+        const providerData = {
+          name: formData.contactName,
+          profession: formData.profession,
+          license_number: formData.licenseNumber,
+          business_name: formData.businessName,
+          address: fullAddress,
+          phone: formData.phoneNumber,
+          email: formData.email,
+          website: formData.website || null,
+        }
+        
+        // Submit to API
+        const response = await fetch("/api/healthcare-providers", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(providerData),
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to complete onboarding")
+        }
+        
+        // Redirect to dashboard after successful creation
+        router.push("/healthcare-provider-dashboard")
+      } catch (error) {
+        console.error("Onboarding completion error:", error)
+        setApiError(error instanceof Error ? error.message : "Failed to complete onboarding")
+      } finally {
+        setIsSubmitting(false)
+      }
     }
 
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1)
-    } else {
-      // Complete onboarding
-      router.push("/buyer-dashboard")
     }
   }
 
@@ -74,6 +174,20 @@ export default function BuyerOnboarding() {
       })
     }
   }
+  
+  const handleInputChange = (field: string, value: string) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    })
+    
+    if (field in errors) {
+      setErrors({
+        ...errors,
+        [field]: false,
+      })
+    }
+  }
 
   return (
     <OnboardingLayout
@@ -85,7 +199,10 @@ export default function BuyerOnboarding() {
       onBack={currentStep > 1 ? handleBack : undefined}
       onNext={handleNext}
       onSave={handleSave}
-      isNextDisabled={currentStep === 1 && (!formData.profession || !formData.licenseNumber || !formData.licenseFile)}
+      isNextDisabled={
+        (currentStep === 1 && (!formData.profession || !formData.licenseNumber || !formData.licenseFile)) ||
+        (currentStep === 3 && isSubmitting)
+      }
     >
       {currentStep === 1 && (
         <div>
@@ -104,10 +221,7 @@ export default function BuyerOnboarding() {
           >
             <Select
               value={formData.profession}
-              onValueChange={(value) => {
-                setFormData({ ...formData, profession: value })
-                setErrors({ ...errors, profession: false })
-              }}
+              onValueChange={(value) => handleInputChange("profession", value)}
             >
               <SelectTrigger className={errors.profession ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select your profession" />
@@ -131,10 +245,7 @@ export default function BuyerOnboarding() {
             <Input
               placeholder="Enter your license number"
               value={formData.licenseNumber}
-              onChange={(e) => {
-                setFormData({ ...formData, licenseNumber: e.target.value })
-                setErrors({ ...errors, licenseNumber: false })
-              }}
+              onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
               className={errors.licenseNumber ? "border-red-500" : ""}
             />
             {errors.licenseNumber && <p className="text-red-500 text-sm mt-1">License number is required</p>}
@@ -177,105 +288,121 @@ export default function BuyerOnboarding() {
           <h3 className="text-lg font-medium mb-4">Business Information</h3>
 
           <FormField label="Business Name" required>
-            <Input placeholder="Enter your pharmacy or hospital name" />
+            <Input 
+              placeholder="Enter your pharmacy or hospital name" 
+              value={formData.businessName}
+              onChange={(e) => handleInputChange("businessName", e.target.value)}
+              className={errors.businessName ? "border-red-500" : ""}
+            />
+            {errors.businessName && <p className="text-red-500 text-sm mt-1">Business name is required</p>}
           </FormField>
 
           <FormField label="Business Address" required>
-            <Input placeholder="Street address" className="mb-2" />
+            <Input 
+              placeholder="Street address" 
+              className={`mb-2 ${errors.address ? "border-red-500" : ""}`}
+              value={formData.address}
+              onChange={(e) => handleInputChange("address", e.target.value)}
+            />
+            {errors.address && <p className="text-red-500 text-sm mt-1">Address is required</p>}
+            
             <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="City" />
-              <Input placeholder="State/Province" />
+              <div>
+                <Input 
+                  placeholder="City" 
+                  className={errors.city ? "border-red-500" : ""}
+                  value={formData.city}
+                  onChange={(e) => handleInputChange("city", e.target.value)}
+                />
+                {errors.city && <p className="text-red-500 text-sm mt-1">City is required</p>}
+              </div>
+              <div>
+                <Input 
+                  placeholder="State/Province" 
+                  className={errors.state ? "border-red-500" : ""}
+                  value={formData.state}
+                  onChange={(e) => handleInputChange("state", e.target.value)}
+                />
+                {errors.state && <p className="text-red-500 text-sm mt-1">State is required</p>}
+              </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-2 mt-2">
-              <Input placeholder="Postal/ZIP Code" />
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Country" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="us">United States</SelectItem>
-                  <SelectItem value="ca">Canada</SelectItem>
-                  <SelectItem value="uk">United Kingdom</SelectItem>
-                  <SelectItem value="au">Australia</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input 
+                placeholder="Postal/ZIP Code"
+                value={formData.postalCode}
+                onChange={(e) => handleInputChange("postalCode", e.target.value)}
+              />
+              <div>
+                <Input 
+                  placeholder="Country" 
+                  className={errors.country ? "border-red-500" : ""}
+                  value={formData.country}
+                  onChange={(e) => handleInputChange("country", e.target.value)}
+                />
+                {errors.country && <p className="text-red-500 text-sm mt-1">Country is required</p>}
+              </div>
             </div>
-          </FormField>
-
-          <FormField
-            label="Business Registration Number"
-            required
-            tooltip="Your business tax ID or registration number"
-          >
-            <Input placeholder="Enter business registration number" />
           </FormField>
         </div>
       )}
 
       {currentStep === 3 && (
         <div>
-          <h3 className="text-lg font-medium mb-4">Purchasing Preferences</h3>
+          <h3 className="text-lg font-medium mb-4">Contact Information</h3>
 
-          <FormField
-            label="Primary Product Categories"
-            tooltip="Select the categories you're most interested in purchasing"
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-general" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-general">General Medications</Label>
-              </div>
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-antibiotics" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-antibiotics">Antibiotics</Label>
-              </div>
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-cardiac" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-cardiac">Cardiac</Label>
-              </div>
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-dermatology" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-dermatology">Dermatology</Label>
-              </div>
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-diabetes" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-diabetes">Diabetes</Label>
-              </div>
-              <div className="flex items-center">
-                <Input type="checkbox" id="category-supplies" className="h-4 w-4 mr-2" />
-                <Label htmlFor="category-supplies">Medical Supplies</Label>
-              </div>
-            </div>
+          <FormField label="Contact Person" required>
+            <Input 
+              placeholder="Full name of primary contact" 
+              value={formData.contactName}
+              onChange={(e) => handleInputChange("contactName", e.target.value)}
+              className={errors.contactName ? "border-red-500" : ""}
+            />
+            {errors.contactName && <p className="text-red-500 text-sm mt-1">Contact name is required</p>}
           </FormField>
 
-          <FormField
-            label="Estimated Monthly Purchase Volume"
-            tooltip="This helps us match you with appropriate suppliers"
-          >
-            <Select>
-              <SelectTrigger>
-                <SelectValue placeholder="Select volume range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Less than $10,000</SelectItem>
-                <SelectItem value="medium">$10,000 - $50,000</SelectItem>
-                <SelectItem value="large">$50,000 - $100,000</SelectItem>
-                <SelectItem value="enterprise">More than $100,000</SelectItem>
-              </SelectContent>
-            </Select>
+          <FormField label="Phone Number" required>
+            <Input 
+              placeholder="Business phone number" 
+              value={formData.phoneNumber}
+              onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
+              className={errors.phoneNumber ? "border-red-500" : ""}
+            />
+            {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">Phone number is required</p>}
           </FormField>
 
-          <FormField label="Additional Information">
-            <textarea
-              className="w-full border rounded-md p-2 h-24"
-              placeholder="Any specific requirements or information you'd like to share"
-            ></textarea>
+          <FormField label="Email Address" required>
+            <Input 
+              type="email" 
+              placeholder="Business email address"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className={errors.email ? "border-red-500" : ""}
+            />
+            {errors.email && <p className="text-red-500 text-sm mt-1">Email is required</p>}
           </FormField>
 
-          <Alert className="mt-6 bg-green-50 border-green-200">
-            <Info className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-700">
-              You're almost done! After submission, our team will review your information within 1-2 business days.
+          <FormField label="Website" tooltip="Your business website (if available)">
+            <Input 
+              placeholder="https://www.example.com" 
+              value={formData.website}
+              onChange={(e) => handleInputChange("website", e.target.value)}
+            />
+          </FormField>
+
+          {apiError && (
+            <Alert className="mt-6 bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-700">
+                Error: {apiError}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Alert className="mt-6 bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              After submission, your information will be verified within 24-48 hours. You'll receive an email confirmation once your account is approved.
             </AlertDescription>
           </Alert>
         </div>

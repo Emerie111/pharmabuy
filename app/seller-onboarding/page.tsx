@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Info, Upload, X, Plus, Clock } from "lucide-react"
+import { Info, AlertCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import OnboardingLayout, { FormField } from "@/components/onboarding-layout"
+import { supabase } from "@/lib/supabase"
 
 export default function SellerOnboarding() {
   const router = useRouter()
@@ -20,24 +21,54 @@ export default function SellerOnboarding() {
   const [formData, setFormData] = useState({
     businessType: "",
     specializations: [] as string[],
-    licenseNumber: "",
-    documents: [] as File[],
+    companyName: "",
+    foundedYear: "",
+    address: "",
+    city: "",
+    state: "",
+    phoneNumber: "",
+    productCount: "",
   })
   const [errors, setErrors] = useState({
     businessType: false,
     specializations: false,
-    licenseNumber: false,
-    documents: false,
+    companyName: false,
+    foundedYear: false,
+    address: false,
+    city: false,
+    state: false,
+    phoneNumber: false,
   })
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
-  const handleNext = () => {
+  // Check if user is authenticated on component mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) {
+        // If no session, redirect to login
+        router.push('/signin') // Redirect to our new signin page
+        return
+      }
+      
+      // Store the email for later use - handle potential undefined
+      if (data.session.user?.email) {
+        setUserEmail(data.session.user.email)
+      }
+    }
+    
+    checkSession()
+  }, [router])
+
+  const handleNext = async () => {
     // Validate current step
     if (currentStep === 1) {
       const newErrors = {
+        ...errors,
         businessType: !formData.businessType,
         specializations: formData.specializations.length === 0,
-        licenseNumber: !formData.licenseNumber,
-        documents: formData.documents.length === 0,
       }
 
       setErrors(newErrors)
@@ -45,13 +76,75 @@ export default function SellerOnboarding() {
       if (Object.values(newErrors).some(Boolean)) {
         return
       }
-    }
-
-    if (currentStep < 3) {
+      
       setCurrentStep(currentStep + 1)
-    } else {
-      // Complete onboarding
-      router.push("/seller-dashboard")
+    } else if (currentStep === 2) {
+      const newErrors = {
+        ...errors,
+        companyName: !formData.companyName,
+        foundedYear: !formData.foundedYear,
+        address: !formData.address,
+        city: !formData.city,
+        state: !formData.state,
+        phoneNumber: !formData.phoneNumber,
+      }
+
+      setErrors(newErrors)
+
+      if (Object.values(newErrors).some(Boolean)) {
+        return
+      }
+      
+      // Submit the form at step 2 now
+      setIsSubmitting(true)
+      setApiError(null)
+      
+      try {
+        if (!userEmail) {
+          throw new Error("User email not available. Please log in again.")
+        }
+        
+        // Get placeholder logo URL - in a real app, you would upload the actual logo
+        const logoUrl = "/placeholder.svg?height=200&width=200&text=" + encodeURIComponent(formData.companyName.substring(0, 2))
+        
+        // Format address
+        const fullAddress = `${formData.address}, ${formData.city}, ${formData.state}`
+        
+        // Create supplier data object - use email from the session
+        const supplierData = {
+          name: formData.companyName,
+          description: `${formData.companyName} is a ${formData.businessType} of pharmaceutical products specializing in ${formData.specializations.join(", ")}.`,
+          logo: logoUrl,
+          address: fullAddress,
+          phone: formData.phoneNumber,
+          email: userEmail,
+          founded_year: parseInt(formData.foundedYear) || new Date().getFullYear(),
+          certifications: [], // You could collect this in another step
+        }
+        
+        // Submit to API
+        const response = await fetch("/api/suppliers", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(supplierData),
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to complete onboarding")
+        }
+        
+        // Redirect to dashboard after successful creation
+        router.push("/seller-dashboard")
+      } catch (error) {
+        console.error("Onboarding completion error:", error)
+        setApiError(error instanceof Error ? error.message : "Failed to complete onboarding")
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -64,35 +157,6 @@ export default function SellerOnboarding() {
   const handleSave = () => {
     // In a real app, this would save the current progress
     alert("Progress saved! You can continue later.")
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const newDocuments = [...formData.documents, e.target.files[0]]
-      setFormData({
-        ...formData,
-        documents: newDocuments,
-      })
-      setErrors({
-        ...errors,
-        documents: false,
-      })
-    }
-  }
-
-  const removeDocument = (index: number) => {
-    const newDocuments = [...formData.documents]
-    newDocuments.splice(index, 1)
-    setFormData({
-      ...formData,
-      documents: newDocuments,
-    })
-    if (newDocuments.length === 0) {
-      setErrors({
-        ...errors,
-        documents: true,
-      })
-    }
   }
 
   const toggleSpecialization = (value: string) => {
@@ -120,22 +184,44 @@ export default function SellerOnboarding() {
     }
   }
 
+  const handleInputChange = (field: string, value: string | string[]) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    })
+    
+    if (field in errors) {
+      setErrors({
+        ...errors,
+        [field]: false,
+      })
+    }
+  }
+
+  const toggleCheckbox = (field: string, value: string) => {
+    const currentValues = [...(formData[field as keyof typeof formData] as string[])]
+    if (currentValues.includes(value)) {
+      handleInputChange(field, currentValues.filter(item => item !== value))
+    } else {
+      handleInputChange(field, [...currentValues, value])
+    }
+  }
+
   return (
     <OnboardingLayout
       currentStep={currentStep}
-      totalSteps={3}
+      totalSteps={2}
       title="Business Verification"
       description="We need to verify your business details to ensure compliance with pharmaceutical regulations."
-      estimatedTime="10-15 minutes"
+      estimatedTime="5-10 minutes"
       onBack={currentStep > 1 ? handleBack : undefined}
       onNext={handleNext}
       onSave={handleSave}
       isNextDisabled={
-        currentStep === 1 &&
+        (currentStep === 1 &&
         (!formData.businessType ||
-          formData.specializations.length === 0 ||
-          !formData.licenseNumber ||
-          formData.documents.length === 0)
+          formData.specializations.length === 0)) ||
+        (currentStep === 2 && isSubmitting)
       }
     >
       {currentStep === 1 && (
@@ -189,23 +275,15 @@ export default function SellerOnboarding() {
                 </Label>
               </div>
             </RadioGroup>
-            {errors.businessType && <p className="text-red-500 text-sm mt-1">Please select your business type</p>}
+            {errors.businessType && <p className="text-red-500 text-sm mt-1">Please select a business type</p>}
           </FormField>
 
           <FormField
             label="Product Specializations"
             required
-            tooltip="Select all product categories that your business specializes in"
+            tooltip="Select all product categories that your company specializes in"
           >
-            <div className={`grid grid-cols-2 gap-3 ${errors.specializations ? "border-red-500" : ""}`}>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="general"
-                  checked={formData.specializations.includes("general")}
-                  onCheckedChange={() => toggleSpecialization("general")}
-                />
-                <Label htmlFor="general">General</Label>
-              </div>
+            <div className="space-y-2 mt-1">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="antibiotics"
@@ -213,6 +291,14 @@ export default function SellerOnboarding() {
                   onCheckedChange={() => toggleSpecialization("antibiotics")}
                 />
                 <Label htmlFor="antibiotics">Antibiotics</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="pain_management"
+                  checked={formData.specializations.includes("pain_management")}
+                  onCheckedChange={() => toggleSpecialization("pain_management")}
+                />
+                <Label htmlFor="pain_management">Pain Management</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -267,84 +353,6 @@ export default function SellerOnboarding() {
               <p className="text-red-500 text-sm mt-1">Please select at least one specialization</p>
             )}
           </FormField>
-
-          <FormField
-            label="Business License/Authorization Number"
-            required
-            tooltip="Your pharmaceutical business license or authorization number"
-          >
-            <Input
-              placeholder="Enter your business license number"
-              value={formData.licenseNumber}
-              onChange={(e) => {
-                setFormData({ ...formData, licenseNumber: e.target.value })
-                setErrors({ ...errors, licenseNumber: false })
-              }}
-              className={errors.licenseNumber ? "border-red-500" : ""}
-            />
-            {errors.licenseNumber && <p className="text-red-500 text-sm mt-1">License number is required</p>}
-          </FormField>
-
-          <FormField
-            label="Business Documents"
-            required
-            tooltip="Upload all relevant business licenses, certifications, and authorizations"
-          >
-            <div
-              className={`border-2 border-dashed rounded-md p-6 ${errors.documents ? "border-red-500" : "border-gray-300"}`}
-            >
-              <div className="space-y-4">
-                {formData.documents.length > 0 && (
-                  <div className="space-y-2">
-                    {formData.documents.map((doc, index) => (
-                      <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded">
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 bg-blue-100 rounded flex items-center justify-center mr-2">
-                            <span className="text-blue-600 text-xs">DOC</span>
-                          </div>
-                          <span className="text-sm truncate max-w-[200px]">{doc.name}</span>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(index)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500 mb-2">
-                    {formData.documents.length === 0
-                      ? "Drag and drop your business documents, or click to browse"
-                      : "Add more documents"}
-                  </p>
-                  <p className="text-xs text-gray-400 mb-4">Supported formats: PDF, JPG, PNG (Max 10MB per file)</p>
-                  <Input
-                    type="file"
-                    id="document-upload"
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileChange}
-                  />
-                  <Label htmlFor="document-upload" asChild>
-                    <Button variant="outline" size="sm">
-                      <Plus className="h-4 w-4 mr-1" />
-                      {formData.documents.length === 0 ? "Select Files" : "Add More Files"}
-                    </Button>
-                  </Label>
-                </div>
-              </div>
-              {errors.documents && <p className="text-red-500 text-sm mt-1">Please upload at least one document</p>}
-            </div>
-          </FormField>
-
-          <Alert className="mt-6 bg-blue-50 border-blue-200">
-            <Clock className="h-4 w-4" />
-            <AlertDescription>
-              Verification typically takes 2-3 business days. You'll be notified by email once your account is approved.
-            </AlertDescription>
-          </Alert>
         </div>
       )}
 
@@ -353,107 +361,84 @@ export default function SellerOnboarding() {
           <h3 className="text-lg font-medium mb-4">Business Details</h3>
 
           <FormField label="Company Name" required>
-            <Input placeholder="Enter your company's legal name" />
+            <Input 
+              placeholder="Enter your company's legal name" 
+              value={formData.companyName}
+              onChange={e => handleInputChange("companyName", e.target.value)}
+              className={errors.companyName ? "border-red-500" : ""}
+            />
+            {errors.companyName && <p className="text-red-500 text-sm mt-1">Company name is required</p>}
           </FormField>
 
-          <FormField label="Year Established" tooltip="Year your company was founded">
-            <Input type="number" placeholder="e.g., 2005" />
+          <FormField label="Year Established" tooltip="Year your company was founded" required>
+            <Input 
+              type="number" 
+              placeholder="e.g., 2005" 
+              value={formData.foundedYear}
+              onChange={e => handleInputChange("foundedYear", e.target.value)}
+              className={errors.foundedYear ? "border-red-500" : ""}
+            />
+            {errors.foundedYear && <p className="text-red-500 text-sm mt-1">Year established is required</p>}
           </FormField>
 
           <FormField label="Business Address" required>
-            <Input placeholder="Street address" className="mb-2" />
+            <Input 
+              placeholder="Street address" 
+              className={`mb-2 ${errors.address ? "border-red-500" : ""}`}
+              value={formData.address}
+              onChange={e => handleInputChange("address", e.target.value)}
+            />
+            {errors.address && <p className="text-red-500 text-sm mt-1">Address is required</p>}
+            
             <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="City" />
-              <Input placeholder="State/Province" />
+              <div>
+                <Input 
+                  placeholder="City" 
+                  className={errors.city ? "border-red-500" : ""}
+                  value={formData.city}
+                  onChange={e => handleInputChange("city", e.target.value)}
+                />
+                {errors.city && <p className="text-red-500 text-sm mt-1">City is required</p>}
+              </div>
+              <div>
+                <Input 
+                  placeholder="State/Province" 
+                  className={errors.state ? "border-red-500" : ""}
+                  value={formData.state}
+                  onChange={e => handleInputChange("state", e.target.value)}
+                />
+                {errors.state && <p className="text-red-500 text-sm mt-1">State is required</p>}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Input placeholder="Postal/ZIP Code" />
-              <Input placeholder="Country" />
-            </div>
           </FormField>
-
-          <FormField label="Tax Identification Number" required tooltip="Your business tax ID number">
-            <Input placeholder="Enter tax ID number" />
+          
+          <FormField label="Phone Number" required tooltip="Your business phone number for buyers to contact you">
+            <Input 
+              placeholder="e.g., +234 800 123 4567" 
+              value={formData.phoneNumber}
+              onChange={e => handleInputChange("phoneNumber", e.target.value)}
+              className={errors.phoneNumber ? "border-red-500" : ""}
+            />
+            {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">Phone number is required</p>}
           </FormField>
-
-          <FormField label="Website" tooltip="Your company's official website">
-            <Input placeholder="https://www.example.com" />
-          </FormField>
-        </div>
-      )}
-
-      {currentStep === 3 && (
-        <div>
-          <h3 className="text-lg font-medium mb-4">Product & Distribution Information</h3>
 
           <FormField label="Number of Products" tooltip="Approximate number of products you plan to list">
-            <Input type="number" placeholder="e.g., 50" />
+            <Input 
+              type="number" 
+              placeholder="e.g., 50" 
+              value={formData.productCount}
+              onChange={e => handleInputChange("productCount", e.target.value)}
+            />
           </FormField>
 
-          <FormField label="Distribution Regions" tooltip="Areas where you can distribute products">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center">
-                <Checkbox id="region-north" className="mr-2" />
-                <Label htmlFor="region-north">North America</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="region-south" className="mr-2" />
-                <Label htmlFor="region-south">South America</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="region-europe" className="mr-2" />
-                <Label htmlFor="region-europe">Europe</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="region-asia" className="mr-2" />
-                <Label htmlFor="region-asia">Asia</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="region-africa" className="mr-2" />
-                <Label htmlFor="region-africa">Africa</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="region-oceania" className="mr-2" />
-                <Label htmlFor="region-oceania">Australia/Oceania</Label>
-              </div>
-            </div>
-          </FormField>
-
-          <FormField label="Shipping Capabilities" tooltip="Select all that apply">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center">
-                <Checkbox id="shipping-standard" className="mr-2" />
-                <Label htmlFor="shipping-standard">Standard Shipping</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="shipping-express" className="mr-2" />
-                <Label htmlFor="shipping-express">Express Shipping</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="shipping-cold" className="mr-2" />
-                <Label htmlFor="shipping-cold">Cold Chain</Label>
-              </div>
-              <div className="flex items-center">
-                <Checkbox id="shipping-hazardous" className="mr-2" />
-                <Label htmlFor="shipping-hazardous">Hazardous Materials</Label>
-              </div>
-            </div>
-          </FormField>
-
-          <FormField label="Additional Information">
-            <textarea
-              className="w-full border rounded-md p-2 h-24"
-              placeholder="Any additional information about your business or products"
-            ></textarea>
-          </FormField>
-
-          <Alert className="mt-6 bg-green-50 border-green-200">
-            <Info className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-700">
-              You're almost done! After submission, our team will review your information within 2-3 business days.
-              You'll receive limited access to the platform while verification is in progress.
-            </AlertDescription>
-          </Alert>
+          {apiError && (
+            <Alert className="mt-6 bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-700">
+                Error: {apiError}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
     </OnboardingLayout>

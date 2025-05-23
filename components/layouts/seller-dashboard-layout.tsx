@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Home,
   Package,
@@ -20,6 +20,8 @@ import {
   ChevronDown,
   Settings,
   LogOut,
+  LogIn,
+  UserPlus
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -35,6 +37,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAuth } from "@/lib/auth-context"
+import { Toaster } from "@/components/ui/toaster"
+import { supabase } from "@/lib/supabase"
 
 export default function SellerDashboardLayout({
   children,
@@ -42,7 +47,94 @@ export default function SellerDashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const { user, isLoading, roles, signOut } = useAuth()
+  const { isSupplier } = roles
+  const [supplierName, setSupplierName] = useState<string>("")
+  const [isLoadingSupplier, setIsLoadingSupplier] = useState(false)
+  const [supplierLogo, setSupplierLogo] = useState<string | null>(null)
+
+  // Fetch supplier name from the supplier table using email
+  useEffect(() => {
+    const fetchSupplierData = async () => {
+      if (!user || !user.email) return
+      
+      const normalizedEmail = user.email.toLowerCase()
+      
+      setIsLoadingSupplier(true)
+      try {
+        console.log("Fetching supplier data with normalized email:", normalizedEmail)
+        
+        // Get all suppliers
+        const { data: allSuppliers, error: suppliersError } = await supabase
+          .from('suppliers')
+          .select('name, logo, email')
+        
+        if (suppliersError) {
+          console.error("Error fetching suppliers:", suppliersError)
+          throw suppliersError
+        }
+        
+        // Find a supplier with a case-insensitive match
+        const matchingSupplier = allSuppliers.find(
+          supplier => supplier.email && supplier.email.toLowerCase() === normalizedEmail
+        )
+        
+        if (matchingSupplier) {
+          console.log("Found matching supplier:", matchingSupplier)
+          setSupplierName(matchingSupplier.name)
+          if (matchingSupplier.logo) {
+            setSupplierLogo(matchingSupplier.logo)
+          }
+        } else {
+          console.log("No supplier found with email:", normalizedEmail)
+        }
+      } catch (error) {
+        console.error('Error fetching supplier data:', error)
+      } finally {
+        setIsLoadingSupplier(false)
+      }
+    }
+    
+    fetchSupplierData()
+  }, [user])
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/signin')
+  }
+
+  // Get supplier initials for avatar
+  const getSupplierInitials = () => {
+    if (!user) return 'GU' // Guest User
+    
+    // Prefer company name for initials if available
+    if (supplierName) {
+      const parts = supplierName.split(' ')
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+      }
+      return supplierName.substring(0, 2).toUpperCase()
+    }
+    
+    const name = user.user_metadata?.name || user.email || ''
+    if (!name) return 'SU' // Supplier User
+    
+    // Extract initials from name
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  // Get supplier display name
+  const getSupplierName = () => {
+    if (!user) return 'Guest'
+    return supplierName || user.user_metadata?.name || user.email?.split('@')[0] || 'Supplier'
+  }
 
   const navItems = [
     { icon: Home, label: "Dashboard", href: "/seller-dashboard" },
@@ -110,40 +202,63 @@ export default function SellerDashboardLayout({
               </Tooltip>
             </TooltipProvider>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder.svg" alt="User" />
-                    <AvatarFallback className="bg-green-100 text-green-800">MS</AvatarFallback>
-                  </Avatar>
-                  <span className="hidden md:inline-flex text-sm font-medium">MediSupply</span>
-                  <ChevronDown className="h-4 w-4 hidden md:inline-flex" />
+            {isLoading || isLoadingSupplier ? (
+              // Show loading state
+              <Button variant="ghost" size="sm" disabled className="opacity-50">
+                <span className="animate-pulse">Loading...</span>
+              </Button>
+            ) : user ? (
+              // User is authenticated - show profile dropdown
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={supplierLogo || user.user_metadata?.avatar_url || "/placeholder.svg"} alt={supplierName} />
+                      <AvatarFallback className="bg-green-100 text-green-800">{getSupplierInitials()}</AvatarFallback>
+                    </Avatar>
+                    <div className="hidden md:flex flex-col items-start">
+                      <span className="text-sm font-medium">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</span>
+                      <span className="text-xs text-gray-500">{supplierName}</span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 hidden md:inline-flex" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span>{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</span>
+                      <span className="text-xs font-normal text-gray-500">{supplierName}</span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/seller-dashboard/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/seller-dashboard/settings')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              // User is not authenticated - show login buttons
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => router.push('/signin')}>
+                  <LogIn className="mr-1 h-4 w-4" />
+                  <span className="hidden md:inline">Sign In</span>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col">
-                    <span>MediSupply Nigeria</span>
-                    <span className="text-xs font-normal text-gray-500">Seller Account</span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <Button size="sm" onClick={() => router.push('/signup')}>
+                  <UserPlus className="mr-1 h-4 w-4" />
+                  <span className="hidden md:inline">Register</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -197,6 +312,9 @@ export default function SellerDashboardLayout({
       <div className="flex-1 md:ml-64 pt-16">
         <main className="container mx-auto p-4 md:p-6">{children}</main>
       </div>
+      
+      {/* Add Toaster component for notifications */}
+      <Toaster />
     </div>
   )
 }

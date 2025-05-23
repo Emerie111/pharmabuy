@@ -98,7 +98,7 @@ export function BrandCard({ brand, genericName, viewMode }: BrandCardProps) {
 
             <div className="flex gap-2">
               <Button asChild className="flex-1" variant="outline">
-                <Link href={`/drugs/${genericName.toLowerCase()}/${brand.brandName.toLowerCase()}`}>
+                <Link href={`/drugs/${encodeURIComponent(genericName.toLowerCase())}/${encodeURIComponent(brand.id)}/${encodeURIComponent(brand.brandName)}`}>
                   View Details
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Link>

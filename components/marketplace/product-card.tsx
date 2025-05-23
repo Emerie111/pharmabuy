@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import BioequivalenceInfo from "./bioequivalence-info"
 import type { BrandedProduct } from "./product-data"
-import { getSupplierByName } from "./product-data"
 
 interface ProductCardProps {
   brand: BrandedProduct
@@ -27,7 +26,7 @@ function addToCart({ brandId, genericId, brandName, price, packSize, supplier, v
   image: string;
 }) {
   // Redirect to the brand's suppliers page with suppliers tab open
-  window.location.href = `/drugs/${encodeURIComponent(genericId.toLowerCase())}/${encodeURIComponent(brandName.toLowerCase())}#suppliers`;
+  window.location.href = `/drugs/${encodeURIComponent(genericId.toLowerCase())}/${encodeURIComponent(brandId)}/${encodeURIComponent(brandName)}#suppliers`;
 }
 
 export default function ProductCard({ brand, genericName, viewMode = "grid" }: ProductCardProps) {
@@ -134,7 +133,7 @@ export default function ProductCard({ brand, genericName, viewMode = "grid" }: P
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link 
-                    href={`/drugs/${encodeURIComponent(genericName.toLowerCase())}/${encodeURIComponent(brand.brandName.toLowerCase())}`} 
+                    href={`/drugs/${encodeURIComponent(genericName.toLowerCase())}/${encodeURIComponent(brand.id)}/${encodeURIComponent(brand.brandName)}`} 
                     className="flex-1"
                   >
                     <Button size="sm" variant="outline" className="w-full">
